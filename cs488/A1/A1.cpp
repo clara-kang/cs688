@@ -21,11 +21,16 @@ static const size_t DIM = 16;
 //----------------------------------------------------------------------------------------
 // Constructor
 A1::A1()
-	: current_col( 0 )
+	: current_col( 0 ),
+	  m (Maze(DIM))
 {
 	colour[0] = 0.0f;
 	colour[1] = 0.0f;
 	colour[2] = 0.0f;
+
+	// m = new Maze(DIM);
+	m.digMaze();
+	m.printMaze();
 }
 
 //----------------------------------------------------------------------------------------
@@ -45,14 +50,14 @@ void A1::init()
 	// Print random number seed in case we want to rerun with
 	// same random numbers
 	cout << "Random number seed = " << rseed << endl;
-	
+
 
 	// DELETE FROM HERE...
-	Maze m(DIM);
-	m.digMaze();
-	m.printMaze();
+	// Maze m(DIM);
+	// m.digMaze();
+	// m.printMaze();
 	// ...TO HERE
-	
+
 	// Set the background colour.
 	glClearColor( 0.3, 0.5, 0.7, 1.0 );
 
@@ -74,12 +79,12 @@ void A1::init()
 
 	// Set up initial view and projection matrices (need to do this here,
 	// since it depends on the GLFW window being set up correctly).
-	view = glm::lookAt( 
+	view = glm::lookAt(
 		glm::vec3( 0.0f, 2.*float(DIM)*2.0*M_SQRT1_2, float(DIM)*2.0*M_SQRT1_2 ),
 		glm::vec3( 0.0f, 0.0f, 0.0f ),
 		glm::vec3( 0.0f, 1.0f, 0.0f ) );
 
-	proj = glm::perspective( 
+	proj = glm::perspective(
 		glm::radians( 30.0f ),
 		float( m_framebufferWidth ) / float( m_framebufferHeight ),
 		1.0f, 1000.0f );
@@ -109,6 +114,24 @@ void A1::initGrid()
 		ct += 6;
 	}
 
+	float cube_verts[] = {
+		0, 0, -1, 0, 1, -1, 0, 1, 0,
+		0, 0, -1, 0, 1, 0, 0, 0, 0,
+		0, 1, -1, -1, 1, -1, 0, 1, 0,
+		-1, 1, -1, -1, 1, 0, 0, 1, 0,
+		-1, 1, 0, -1, 1, -1, -1, 0, -1,
+		-1, 1, 0, -1, 0, -1, -1, 0, 0,
+		0, 1, 0, -1, 1, 0, 0, 0, 0,
+		-1, 1, 0, -1, 0, 0, 0, 0, 0,
+		-1, 1, -1, 0, 1, -1, 0, 0, -1,
+		-1, 1, -1, 0, 0, -1, -1, 0, -1
+	};
+
+//TODO:delete
+	float triangle_verts[] = {
+		-1.0f, 0.0f, -1.0f, -1.0f, 0.0f, 0.0f, 0.0f, 0.0f, -1.0f
+	};
+
 	// Create the vertex array to record buffer assignments.
 	glGenVertexArrays( 1, &m_grid_vao );
 	glBindVertexArray( m_grid_vao );
@@ -124,7 +147,21 @@ void A1::initGrid()
 	glEnableVertexAttribArray( posAttrib );
 	glVertexAttribPointer( posAttrib, 3, GL_FLOAT, GL_FALSE, 0, nullptr );
 
-	// Reset state to prevent rogue code from messing with *my* 
+	// Create the vertex array for cube_verts
+	glGenVertexArrays(1, &m_cube_vao);
+	glBindVertexArray( m_cube_vao);
+
+	// Create the vertex buffer for the cubes
+	glGenBuffers(1, &m_cube_vbo);
+	glBindBuffer( GL_ARRAY_BUFFER, m_cube_vbo);
+	glBufferData( GL_ARRAY_BUFFER, sizeof(cube_verts), cube_verts, GL_STATIC_DRAW);
+
+	// Specify the means of extracting the position values properly.
+	//GLint posAttrib = m_shader.getAttribLocation( "position" );
+	glEnableVertexAttribArray( posAttrib );
+	glVertexAttribPointer( posAttrib, 3, GL_FLOAT, GL_FALSE, 0, nullptr );
+
+	// Reset state to prevent rogue code from messing with *my*
 	// stuff!
 	glBindVertexArray( 0 );
 	glBindBuffer( GL_ARRAY_BUFFER, 0 );
@@ -151,7 +188,7 @@ void A1::appLogic()
  */
 void A1::guiLogic()
 {
-	// We already know there's only going to be one window, so for 
+	// We already know there's only going to be one window, so for
 	// simplicity we'll store button states in static local variables.
 	// If there was ever a possibility of having multiple instances of
 	// A1 running simultaneously, this would break; you'd want to make
@@ -187,7 +224,7 @@ void A1::guiLogic()
 /*
 		// For convenience, you can uncomment this to show ImGui's massive
 		// demonstration window right in your application.  Very handy for
-		// browsing around to get the widget you want.  Then look in 
+		// browsing around to get the widget you want.  Then look in
 		// shared/imgui/imgui_demo.cpp to see how it's done.
 		if( ImGui::Button( "Test Window" ) ) {
 			showTestWindow = !showTestWindow;
@@ -226,6 +263,19 @@ void A1::draw()
 		glDrawArrays( GL_LINES, 0, (3+DIM)*4 );
 
 		// Draw the cubes
+		glBindVertexArray ( m_cube_vao );
+		mat4 M_cube;
+		// Iterate over the colums of matrix
+		for ( int idx = 0; idx < DIM; idx++ ) {
+			// Iterate over the rows of matrix
+			for ( int idz = 0; idz < DIM; idz++) {
+				if ( m.getValue(idx,idz) ) {
+					M_cube = glm::translate( W, vec3( float(idx)+1, 0, float(idz)+1) );
+					glUniformMatrix4fv( M_uni, 1, GL_FALSE, value_ptr( M_cube ) );
+					glDrawArrays( GL_TRIANGLES, 0, 10*3*3)	;
+				}
+			}
+		}
 		// Highlight the active square.
 	m_shader.disable();
 
@@ -260,7 +310,7 @@ bool A1::cursorEnterWindowEvent (
 /*
  * Event handler.  Handles mouse cursor movement events.
  */
-bool A1::mouseMoveEvent(double xPos, double yPos) 
+bool A1::mouseMoveEvent(double xPos, double yPos)
 {
 	bool eventHandled(false);
 
@@ -268,7 +318,7 @@ bool A1::mouseMoveEvent(double xPos, double yPos)
 		// Put some code here to handle rotations.  Probably need to
 		// check whether we're *dragging*, not just moving the mouse.
 		// Probably need some instance variables to track the current
-		// rotation amount, and maybe the previous X position (so 
+		// rotation amount, and maybe the previous X position (so
 		// that you can rotate relative to the *change* in X.
 	}
 

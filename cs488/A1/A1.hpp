@@ -8,7 +8,8 @@
 #include "cs488-framework/OpenGLImport.hpp"
 #include "cs488-framework/ShaderProgram.hpp"
 
-#include "grid.hpp"
+//#include "grid.hpp"
+#include "maze.hpp"
 
 class A1 : public CS488Window {
 public:
@@ -43,10 +44,15 @@ private:
 	GLuint m_grid_vao; // Vertex Array Object
 	GLuint m_grid_vbo; // Vertex Buffer Object
 
+	//Fields related to cubes geometry
+	GLuint m_cube_vao;
+	GLuint m_cube_vbo;
+
 	// Matrices controlling the camera and projection.
 	glm::mat4 proj;
 	glm::mat4 view;
 
 	float colour[3];
 	int current_col;
+	Maze m;
 };

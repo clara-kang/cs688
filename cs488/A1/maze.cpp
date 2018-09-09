@@ -1,6 +1,7 @@
 // Fall 2018
 
 #include <algorithm>
+#include <stdio.h>
 
 #include "maze.hpp"
 
@@ -76,7 +77,7 @@ int Maze::numNeighbors(int r, int c) {
 void Maze::printMaze() {
 	int i,j;
 	for (i=0; i<m_dim; i++) {
-		for (j=0; j<m_dim; j++) { 
+		for (j=0; j<m_dim; j++) {
 			if ( getValue(i,j)==1 ) {
 				printf("X");
 			} else {
@@ -118,7 +119,7 @@ void Maze::recDigMaze(int r, int c) {
 			}
 			break;
 		}
-	} 
+	}
 }
 
 void Maze::digMaze()
