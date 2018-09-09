@@ -369,11 +369,15 @@ bool A0::keyInputEvent(int key, int action, int mods) {
 
 			eventHandled = true;
 		}
+		// Q key closes the application
 		if (key == GLFW_KEY_Q) {
 			glfwSetWindowShouldClose(m_window, GL_TRUE);
+			eventHandled = true;
 		}
+		// R key resets transformation and color
 		if (key == GLFW_KEY_R) {
 			resetTransformationAndColor();
+			eventHandled = true;
 		}
 	}
 

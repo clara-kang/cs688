@@ -12,25 +12,25 @@
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/type_ptr.hpp>
+//TODO: DELETE
+#include <glm/gtx/string_cast.hpp>
 
 using namespace glm;
 using namespace std;
 
 static const size_t DIM = 16;
+const float SIZE_CHANGE = 0.1f;
 
 //----------------------------------------------------------------------------------------
 // Constructor
 A1::A1()
 	: current_col( 0 ),
-	  m (Maze(DIM))
+	  m (Maze(DIM)),
+		M_Cube_Scale(mat4(1.0f))
 {
 	colour[0] = 0.0f;
 	colour[1] = 0.0f;
 	colour[2] = 0.0f;
-
-	// m = new Maze(DIM);
-	m.digMaze();
-	m.printMaze();
 }
 
 //----------------------------------------------------------------------------------------
@@ -127,11 +127,6 @@ void A1::initGrid()
 		-1, 1, -1, 0, 0, -1, -1, 0, -1
 	};
 
-//TODO:delete
-	float triangle_verts[] = {
-		-1.0f, 0.0f, -1.0f, -1.0f, 0.0f, 0.0f, 0.0f, 0.0f, -1.0f
-	};
-
 	// Create the vertex array to record buffer assignments.
 	glGenVertexArrays( 1, &m_grid_vao );
 	glBindVertexArray( m_grid_vao );
@@ -173,6 +168,11 @@ void A1::initGrid()
 	CHECK_GL_ERRORS;
 }
 
+void A1::newMaze() {
+		m.digMaze();
+		// reset wall height to default
+		M_Cube_Scale[1][1] = 1.0f;
+}
 //----------------------------------------------------------------------------------------
 /*
  * Called once per frame, before guiLogic().
@@ -264,13 +264,15 @@ void A1::draw()
 
 		// Draw the cubes
 		glBindVertexArray ( m_cube_vao );
-		mat4 M_cube;
+		mat4 M_Cube_Translate, M_cube;
+
 		// Iterate over the colums of matrix
 		for ( int idx = 0; idx < DIM; idx++ ) {
 			// Iterate over the rows of matrix
 			for ( int idz = 0; idz < DIM; idz++) {
 				if ( m.getValue(idx,idz) ) {
-					M_cube = glm::translate( W, vec3( float(idx)+1, 0, float(idz)+1) );
+					M_Cube_Translate = glm::translate( W, vec3( float(idx)+1, 0, float(idz)+1) );
+					M_cube = M_Cube_Translate * M_Cube_Scale;
 					glUniformMatrix4fv( M_uni, 1, GL_FALSE, value_ptr( M_cube ) );
 					glDrawArrays( GL_TRIANGLES, 0, 10*3*3)	;
 				}
@@ -374,6 +376,27 @@ bool A1::keyInputEvent(int key, int action, int mods) {
 	// Fill in with event handling code...
 	if( action == GLFW_PRESS ) {
 		// Respond to some key events.
+		// D key creates a new Maze
+		if (key == GLFW_KEY_D) {
+			newMaze();
+		}
+		// Space key inscrease wall height by 1 unit
+		if (key == GLFW_KEY_SPACE) {
+			M_Cube_Scale[1][1] += SIZE_CHANGE;
+			eventHandled = true;
+		}
+		// Backspace key decrease wall height by 1 unit
+		if (key == GLFW_KEY_BACKSPACE) {
+			if ( M_Cube_Scale[1][1] >= SIZE_CHANGE) {
+				M_Cube_Scale[1][1] -= SIZE_CHANGE;
+			}
+			eventHandled = true;
+		}
+		// Q key closes the application
+		if (key == GLFW_KEY_Q) {
+			glfwSetWindowShouldClose(m_window, GL_TRUE);
+			eventHandled = true;
+		}
 	}
 
 	return eventHandled;
