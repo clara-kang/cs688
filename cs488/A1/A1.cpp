@@ -31,6 +31,7 @@ A1::A1()
 	colour[0] = 0.0f;
 	colour[1] = 0.0f;
 	colour[2] = 0.0f;
+	light_dir = glm::normalize(vec3(1.0f, 1.0f, 2.0f));
 }
 
 //----------------------------------------------------------------------------------------
@@ -51,13 +52,6 @@ void A1::init()
 	// same random numbers
 	cout << "Random number seed = " << rseed << endl;
 
-
-	// DELETE FROM HERE...
-	// Maze m(DIM);
-	// m.digMaze();
-	// m.printMaze();
-	// ...TO HERE
-
 	// Set the background colour.
 	glClearColor( 0.3, 0.5, 0.7, 1.0 );
 
@@ -74,6 +68,7 @@ void A1::init()
 	V_uni = m_shader.getUniformLocation( "V" );
 	M_uni = m_shader.getUniformLocation( "M" );
 	col_uni = m_shader.getUniformLocation( "colour" );
+	light_uni = m_shader.getUniformLocation( "lightDir");
 
 	initGrid();
 
@@ -114,7 +109,7 @@ void A1::initGrid()
 		ct += 6;
 	}
 
-	float cube_verts[] = {
+	float cube_verts_pos[] = {
 		0, 0, -1, 0, 1, -1, 0, 1, 0,
 		0, 0, -1, 0, 1, 0, 0, 0, 0,
 		0, 1, -1, -1, 1, -1, 0, 1, 0,
@@ -125,6 +120,19 @@ void A1::initGrid()
 		-1, 1, 0, -1, 0, 0, 0, 0, 0,
 		-1, 1, -1, 0, 1, -1, 0, 0, -1,
 		-1, 1, -1, 0, 0, -1, -1, 0, -1
+	};
+
+	float cube_verts_normals[] = {
+		1, 0, 0, 1, 0, 0, 1, 0, 0,
+		1, 0, 0, 1, 0, 0, 1, 0, 0,
+		0, 1, 0, 0, 1, 0, 0, 1, 0,
+		0, 1, 0, 0, 1, 0, 0, 1, 0,
+		-1, 0, 0, -1, 0, 0, -1, 0, 0,
+		-1, 0, 0, -1, 0, 0, -1, 0, 0,
+		0, 0, 1, 0, 0, 1, 0, 0, 1,
+		0, 0, 1, 0, 0, 1, 0, 0, 1,
+		0, 0, -1, 0, 0, -1, 0, 0, -1,
+		0, 0, -1, 0, 0, -1, 0, 0, -1
 	};
 
 	// Create the vertex array to record buffer assignments.
@@ -138,7 +146,7 @@ void A1::initGrid()
 		verts, GL_STATIC_DRAW );
 
 	// Specify the means of extracting the position values properly.
-	GLint posAttrib = m_shader.getAttribLocation( "position" );
+	GLint posAttrib = m_shader.getAttribLocation( "VertexPosition" );
 	glEnableVertexAttribArray( posAttrib );
 	glVertexAttribPointer( posAttrib, 3, GL_FLOAT, GL_FALSE, 0, nullptr );
 
@@ -149,12 +157,20 @@ void A1::initGrid()
 	// Create the vertex buffer for the cubes
 	glGenBuffers(1, &m_cube_vbo);
 	glBindBuffer( GL_ARRAY_BUFFER, m_cube_vbo);
-	glBufferData( GL_ARRAY_BUFFER, sizeof(cube_verts), cube_verts, GL_STATIC_DRAW);
+	glBufferData( GL_ARRAY_BUFFER, sizeof(cube_verts_pos)+sizeof(cube_verts_normals),
+		NULL, GL_STATIC_DRAW);
+	glBufferSubData( GL_ARRAY_BUFFER, 0, sizeof(cube_verts_pos), cube_verts_pos);
+	glBufferSubData( GL_ARRAY_BUFFER, sizeof(cube_verts_pos),
+		sizeof(cube_verts_normals), cube_verts_normals);
 
 	// Specify the means of extracting the position values properly.
 	//GLint posAttrib = m_shader.getAttribLocation( "position" );
+	GLint normalAttrib = m_shader.getAttribLocation( "VertexNormal" );
 	glEnableVertexAttribArray( posAttrib );
 	glVertexAttribPointer( posAttrib, 3, GL_FLOAT, GL_FALSE, 0, nullptr );
+	glEnableVertexAttribArray( normalAttrib );
+	glVertexAttribPointer( normalAttrib, 3, GL_FLOAT, GL_TRUE, 0,
+		(void *)sizeof(cube_verts_pos) );
 
 	// Reset state to prevent rogue code from messing with *my*
 	// stuff!
@@ -260,6 +276,7 @@ void A1::draw()
 		// Just draw the grid for now.
 		glBindVertexArray( m_grid_vao );
 		glUniform3f( col_uni, 1, 1, 1 );
+		glUniform3fv( light_uni, 1, value_ptr(light_dir));
 		glDrawArrays( GL_LINES, 0, (3+DIM)*4 );
 
 		// Draw the cubes

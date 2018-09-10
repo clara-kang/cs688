@@ -40,6 +40,7 @@ private:
 	GLint V_uni; // Uniform location for View matrix.
 	GLint M_uni; // Uniform location for Model matrix.
 	GLint col_uni;   // Uniform location for cube colour.
+	GLint light_uni; // Uniform location for light direction
 
 	// Fields related to grid geometry.
 	GLuint m_grid_vao; // Vertex Array Object
@@ -56,5 +57,10 @@ private:
 
 	float colour[3];
 	int current_col;
+
+	// Current Maze
 	Maze m;
+
+	//Light direction
+	glm::vec3 light_dir;
 };
