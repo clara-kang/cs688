@@ -33,6 +33,7 @@ protected:
 private:
 	void initGrid();
 	void newMaze();
+	bool outOfMaze(int x, int y);
 
 	// Fields related to the shader and uniforms.
 	ShaderProgram m_shader;
@@ -49,6 +50,7 @@ private:
 	GLuint m_cube_vao;
 	GLuint m_cube_vbo;
 	glm::mat4 M_Cube_Scale;
+	glm::mat4 M_Avatar_Scale;
 
 	// Matrices controlling the camera and projection.
 	glm::mat4 proj;
@@ -59,10 +61,16 @@ private:
 
 	float colour[3];
 	int current_col;
-	double pre_xPos;
+	// Zoom factor, smaller when camera is closer to the object
 	float zoom_factor;
+	// Persistent rotation direction, -1 cw, 1 ccw, 0 not rotating
 	float persistent_rotation_dir;
+	// Avatar position
+	int avatar_pos[2];
 	Maze m;
+
+	// True if the first maze is digged
+	bool maze_created;
 
 	// True if mouse button is currently down.
 	bool m_mouseButtonActive;

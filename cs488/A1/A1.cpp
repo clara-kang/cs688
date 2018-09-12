@@ -20,12 +20,13 @@ using namespace glm;
 using namespace std;
 
 static const size_t DIM = 16;
+const float AVATAR_SCALE = 0.5f;
 const float SIZE_CHANGE = 0.1f;
 const float GRID_ANGLE_CHANGE = 0.0125f;
 const float ZOOM_FACTOR_CHANGE = 0.1f;
 const float MIN_ZOOM_FACTOR = 0.5f;
 const float MAX_ZOOM_FACTOR = 5.0f;
-
+const float AVATAR_GRID_DISPLACEMENT = 1.0f - AVATAR_SCALE / 2.0f;
 
 //----------------------------------------------------------------------------------------
 // Constructor
@@ -35,11 +36,15 @@ A1::A1()
 		M_Cube_Scale( mat4(1.0f) ),
 		grid_rotation( mat4(1.0f) ),
 		zoom_factor( 1 ),
-		persistent_rotation_dir( 0)
+		persistent_rotation_dir( 0 ),
+		maze_created( false )
 {
 	colour[0] = 0.0f;
 	colour[1] = 0.0f;
 	colour[2] = 0.0f;
+	avatar_pos[0] = -1;
+	avatar_pos[1] = -1;
+	M_Avatar_Scale = glm::scale(M_Avatar_Scale, AVATAR_SCALE * vec3(1.0f));
 }
 
 //----------------------------------------------------------------------------------------
@@ -161,7 +166,6 @@ void A1::initGrid()
 	glBufferData( GL_ARRAY_BUFFER, sizeof(cube_verts), cube_verts, GL_STATIC_DRAW);
 
 	// Specify the means of extracting the position values properly.
-	//GLint posAttrib = m_shader.getAttribLocation( "position" );
 	glEnableVertexAttribArray( posAttrib );
 	glVertexAttribPointer( posAttrib, 3, GL_FLOAT, GL_FALSE, 0, nullptr );
 
@@ -179,6 +183,9 @@ void A1::initGrid()
 
 void A1::newMaze() {
 		m.digMaze();
+		if (!maze_created) {
+			maze_created = true;
+		}
 		// reset wall height to default
 		M_Cube_Scale[1][1] = 1.0f;
 }
@@ -277,6 +284,7 @@ void A1::draw()
 
 		// Draw the cubes
 		glBindVertexArray ( m_cube_vao );
+		glUniform3f( col_uni, 0.5f, 0.5f, 0.5f);
 		mat4 M_Cube_Translate, M_cube;
 
 		// Iterate over the colums of matrix
@@ -291,6 +299,16 @@ void A1::draw()
 				}
 			}
 		}
+
+		// Draw the avatar
+		glm::mat4 M_Avatar_Translate, M_Avatar;
+		M_Avatar_Translate = glm::translate( W, vec3(avatar_pos[0] +
+			AVATAR_GRID_DISPLACEMENT, 0, avatar_pos[1] + AVATAR_GRID_DISPLACEMENT));
+		M_Avatar = grid_rotation * M_Avatar_Translate * M_Avatar_Scale;
+		glUniform3f( col_uni, 1, 0, 0);
+		glUniformMatrix4fv( M_uni, 1, GL_FALSE, value_ptr( M_Avatar));
+		glDrawArrays ( GL_TRIANGLES, 0, 10*3*3);
+
 		// Highlight the active square.
 	m_shader.disable();
 
@@ -435,7 +453,36 @@ bool A1::keyInputEvent(int key, int action, int mods) {
 			glfwSetWindowShouldClose(m_window, GL_TRUE);
 			eventHandled = true;
 		}
+		// Down and Up Key to move avatar down and up, only move when maze created
+		if ((key == GLFW_KEY_DOWN || key == GLFW_KEY_UP) && maze_created) {
+			int next_pos_z ;
+			if (key == GLFW_KEY_DOWN) {
+				next_pos_z = std::min(avatar_pos[1]+1, (int)DIM);
+			} else {
+				next_pos_z = std::max(avatar_pos[1]-1, -1);
+			}
+			if ( outOfMaze(avatar_pos[0], next_pos_z) ||
+				m.getValue(avatar_pos[0], next_pos_z) == 0) {
+				avatar_pos[1] = next_pos_z;
+			}
+			// Left and Right Key to move avatar left and right
+		} else if ((key == GLFW_KEY_LEFT || key == GLFW_KEY_RIGHT) && maze_created) {
+			int next_pos_x;
+			if (key == GLFW_KEY_LEFT) {
+				next_pos_x = std::max(avatar_pos[0]-1, -1);
+			} else {
+				next_pos_x = std::min(avatar_pos[0]+1, (int)DIM);
+			}
+			if ( outOfMaze(next_pos_x, avatar_pos[1]) ||
+				m.getValue(next_pos_x, avatar_pos[1]) == 0) {
+				avatar_pos[0] = next_pos_x;
+			}
+		}
 	}
 
 	return eventHandled;
+}
+
+bool A1::outOfMaze (int x, int y) {
+	return (x < 0 || y < 0 || x > (int)DIM - 1 || y > (int)DIM - 1);
 }
