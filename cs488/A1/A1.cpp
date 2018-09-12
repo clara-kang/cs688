@@ -21,8 +21,11 @@ using namespace std;
 
 static const size_t DIM = 16;
 const float SIZE_CHANGE = 0.1f;
-const float GRID_ANGLE_CHANGE = 0.025f;
+const float GRID_ANGLE_CHANGE = 0.0125f;
 const float ZOOM_FACTOR_CHANGE = 0.1f;
+const float MIN_ZOOM_FACTOR = 0.5f;
+const float MAX_ZOOM_FACTOR = 5.0f;
+
 
 //----------------------------------------------------------------------------------------
 // Constructor
@@ -31,8 +34,8 @@ A1::A1()
 	  m ( Maze(DIM) ),
 		M_Cube_Scale( mat4(1.0f) ),
 		grid_rotation( mat4(1.0f) ),
-		pre_xPos( 0 ),
-		zoom_factor( 1 )
+		zoom_factor( 1 ),
+		persistent_rotation_dir( 0)
 {
 	colour[0] = 0.0f;
 	colour[1] = 0.0f;
@@ -186,6 +189,10 @@ void A1::newMaze() {
 void A1::appLogic()
 {
 	// Place per frame, application logic here ...
+	if (persistent_rotation_dir != 0) {
+		grid_rotation = glm::rotate ( grid_rotation,
+			GRID_ANGLE_CHANGE * persistent_rotation_dir, vec3(0.0, 1.0, 0.0));
+	}
 }
 
 //----------------------------------------------------------------------------------------
@@ -329,12 +336,9 @@ bool A1::mouseMoveEvent(double xPos, double yPos)
 		// that you can rotate relative to the *change* in X.
 		if (m_mouseButtonActive) {
 			grid_rotation = glm::rotate ( grid_rotation,
-				(float)(xPos - pre_xPos) * GRID_ANGLE_CHANGE, vec3(0.0, 1.0, 0.0));
+				(float)(xPos - ImGui::GetIO().MousePosPrev.x) * GRID_ANGLE_CHANGE, vec3(0.0, 1.0, 0.0));
 		}
 	}
-
-	// update mouse previous x position
-	pre_xPos = xPos;
 
 	return eventHandled;
 }
@@ -351,11 +355,20 @@ bool A1::mouseButtonInputEvent(int button, int actions, int mods) {
 			// The user clicked in the window.  If it's the left
 			// mouse button, initiate a rotation.
 			m_mouseButtonActive = true;
+			persistent_rotation_dir = 0.0f;
 		}
 	}
 
+	// Mouse release, check is mouse is moving to set persistent rotation
 	if ( actions == GLFW_RELEASE) {
 		m_mouseButtonActive = false;
+		if (ImGui::GetIO().MouseDelta.x < 0) {
+			persistent_rotation_dir = -1.0f;
+		} else if (ImGui::GetIO().MouseDelta.x > 0 ) {
+			persistent_rotation_dir = 1.0f;
+		} else {
+		}
+
 	}
 
 	return eventHandled;
@@ -369,8 +382,8 @@ bool A1::mouseScrollEvent(double xOffSet, double yOffSet) {
 	bool eventHandled(false);
 
 	// Zoom in or out.
-	zoom_factor = std::max( 0.5f, zoom_factor + (float)yOffSet*ZOOM_FACTOR_CHANGE );
-	cout << "zoom factor: " << zoom_factor << endl;
+	zoom_factor = std::max( MIN_ZOOM_FACTOR, zoom_factor + (float)yOffSet*ZOOM_FACTOR_CHANGE );
+	zoom_factor = std::min( MAX_ZOOM_FACTOR, zoom_factor );
 	view = glm::lookAt(
 		INITIAL_CAMERA_POS * zoom_factor,
 		glm::vec3( 0.0f, 0.0f, 0.0f ),

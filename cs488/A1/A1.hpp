@@ -61,6 +61,7 @@ private:
 	int current_col;
 	double pre_xPos;
 	float zoom_factor;
+	float persistent_rotation_dir;
 	Maze m;
 
 	// True if mouse button is currently down.
