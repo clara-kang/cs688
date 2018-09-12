@@ -15,13 +15,14 @@
 #include <glm/gtc/type_ptr.hpp>
 //TODO: DELETE
 #include <glm/gtx/string_cast.hpp>
-#define INITIAL_CAMERA_POS 0.0f, 2.*float(DIM)*2.0*M_SQRT1_2, float(DIM)*2.0*M_SQRT1_2
+#define INITIAL_CAMERA_POS glm::vec3(0.0f, 2.*float(DIM)*2.0*M_SQRT1_2, float(DIM)*2.0*M_SQRT1_2)
 using namespace glm;
 using namespace std;
 
 static const size_t DIM = 16;
 const float SIZE_CHANGE = 0.1f;
 const float GRID_ANGLE_CHANGE = 0.025f;
+const float ZOOM_FACTOR_CHANGE = 0.1f;
 
 //----------------------------------------------------------------------------------------
 // Constructor
@@ -29,9 +30,9 @@ A1::A1()
 	: current_col( 0 ),
 	  m ( Maze(DIM) ),
 		M_Cube_Scale( mat4(1.0f) ),
-		current_camera_pos ( glm::vec3(INITIAL_CAMERA_POS) ),
 		grid_rotation( mat4(1.0f) ),
-		pre_xPos( 0 )
+		pre_xPos( 0 ),
+		zoom_factor( 1 )
 {
 	colour[0] = 0.0f;
 	colour[1] = 0.0f;
@@ -85,7 +86,7 @@ void A1::init()
 	// Set up initial view and projection matrices (need to do this here,
 	// since it depends on the GLFW window being set up correctly).
 	view = glm::lookAt(
-		current_camera_pos,
+		INITIAL_CAMERA_POS,
 		glm::vec3( 0.0f, 0.0f, 0.0f ),
 		glm::vec3( 0.0f, 1.0f, 0.0f ) );
 
@@ -368,6 +369,12 @@ bool A1::mouseScrollEvent(double xOffSet, double yOffSet) {
 	bool eventHandled(false);
 
 	// Zoom in or out.
+	zoom_factor = std::max( 0.5f, zoom_factor + (float)yOffSet*ZOOM_FACTOR_CHANGE );
+	cout << "zoom factor: " << zoom_factor << endl;
+	view = glm::lookAt(
+		INITIAL_CAMERA_POS * zoom_factor,
+		glm::vec3( 0.0f, 0.0f, 0.0f ),
+		glm::vec3( 0.0f, 1.0f, 0.0f ) );
 
 	return eventHandled;
 }

@@ -60,7 +60,7 @@ private:
 	float colour[3];
 	int current_col;
 	double pre_xPos;
-	glm::vec3 current_camera_pos;
+	float zoom_factor;
 	Maze m;
 
 	// True if mouse button is currently down.
