@@ -54,7 +54,15 @@ private:
 	glm::mat4 proj;
 	glm::mat4 view;
 
+	// Matrix for grid rotation
+	glm::mat4 grid_rotation;
+
 	float colour[3];
 	int current_col;
+	double pre_xPos;
+	glm::vec3 current_camera_pos;
 	Maze m;
+
+	// True if mouse button is currently down.
+	bool m_mouseButtonActive;
 };

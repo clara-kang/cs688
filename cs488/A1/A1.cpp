@@ -11,22 +11,27 @@
 #include <imgui/imgui.h>
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
+//#include <glm/gtx/pre_xPos_vector.hpp>
 #include <glm/gtc/type_ptr.hpp>
 //TODO: DELETE
 #include <glm/gtx/string_cast.hpp>
-
+#define INITIAL_CAMERA_POS 0.0f, 2.*float(DIM)*2.0*M_SQRT1_2, float(DIM)*2.0*M_SQRT1_2
 using namespace glm;
 using namespace std;
 
 static const size_t DIM = 16;
 const float SIZE_CHANGE = 0.1f;
+const float GRID_ANGLE_CHANGE = 0.025f;
 
 //----------------------------------------------------------------------------------------
 // Constructor
 A1::A1()
 	: current_col( 0 ),
-	  m (Maze(DIM)),
-		M_Cube_Scale(mat4(1.0f))
+	  m ( Maze(DIM) ),
+		M_Cube_Scale( mat4(1.0f) ),
+		current_camera_pos ( glm::vec3(INITIAL_CAMERA_POS) ),
+		grid_rotation( mat4(1.0f) ),
+		pre_xPos( 0 )
 {
 	colour[0] = 0.0f;
 	colour[1] = 0.0f;
@@ -80,7 +85,7 @@ void A1::init()
 	// Set up initial view and projection matrices (need to do this here,
 	// since it depends on the GLFW window being set up correctly).
 	view = glm::lookAt(
-		glm::vec3( 0.0f, 2.*float(DIM)*2.0*M_SQRT1_2, float(DIM)*2.0*M_SQRT1_2 ),
+		current_camera_pos,
 		glm::vec3( 0.0f, 0.0f, 0.0f ),
 		glm::vec3( 0.0f, 1.0f, 0.0f ) );
 
@@ -255,7 +260,7 @@ void A1::draw()
 
 		glUniformMatrix4fv( P_uni, 1, GL_FALSE, value_ptr( proj ) );
 		glUniformMatrix4fv( V_uni, 1, GL_FALSE, value_ptr( view ) );
-		glUniformMatrix4fv( M_uni, 1, GL_FALSE, value_ptr( W ) );
+		glUniformMatrix4fv( M_uni, 1, GL_FALSE, value_ptr( grid_rotation * W ) );
 
 		// Just draw the grid for now.
 		glBindVertexArray( m_grid_vao );
@@ -272,7 +277,7 @@ void A1::draw()
 			for ( int idz = 0; idz < DIM; idz++) {
 				if ( m.getValue(idx,idz) ) {
 					M_Cube_Translate = glm::translate( W, vec3( float(idx)+1, 0, float(idz)+1) );
-					M_cube = M_Cube_Translate * M_Cube_Scale;
+					M_cube = grid_rotation * M_Cube_Translate * M_Cube_Scale;
 					glUniformMatrix4fv( M_uni, 1, GL_FALSE, value_ptr( M_cube ) );
 					glDrawArrays( GL_TRIANGLES, 0, 10*3*3)	;
 				}
@@ -315,14 +320,20 @@ bool A1::cursorEnterWindowEvent (
 bool A1::mouseMoveEvent(double xPos, double yPos)
 {
 	bool eventHandled(false);
-
 	if (!ImGui::IsMouseHoveringAnyWindow()) {
 		// Put some code here to handle rotations.  Probably need to
 		// check whether we're *dragging*, not just moving the mouse.
 		// Probably need some instance variables to track the current
 		// rotation amount, and maybe the previous X position (so
 		// that you can rotate relative to the *change* in X.
+		if (m_mouseButtonActive) {
+			grid_rotation = glm::rotate ( grid_rotation,
+				(float)(xPos - pre_xPos) * GRID_ANGLE_CHANGE, vec3(0.0, 1.0, 0.0));
+		}
 	}
+
+	// update mouse previous x position
+	pre_xPos = xPos;
 
 	return eventHandled;
 }
@@ -334,9 +345,16 @@ bool A1::mouseMoveEvent(double xPos, double yPos)
 bool A1::mouseButtonInputEvent(int button, int actions, int mods) {
 	bool eventHandled(false);
 
-	if (!ImGui::IsMouseHoveringAnyWindow()) {
-		// The user clicked in the window.  If it's the left
-		// mouse button, initiate a rotation.
+	if( actions == GLFW_PRESS && button == 0) {
+		if (!ImGui::IsMouseHoveringAnyWindow()) {
+			// The user clicked in the window.  If it's the left
+			// mouse button, initiate a rotation.
+			m_mouseButtonActive = true;
+		}
+	}
+
+	if ( actions == GLFW_RELEASE) {
+		m_mouseButtonActive = false;
 	}
 
 	return eventHandled;
