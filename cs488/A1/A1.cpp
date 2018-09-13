@@ -37,7 +37,8 @@ A1::A1()
 		grid_rotation( mat4(1.0f) ),
 		zoom_factor( 1 ),
 		persistent_rotation_dir( 0 ),
-		maze_created( false )
+		maze_created( false ),
+		shift_down( false )
 {
 	colour[0] = 0.0f;
 	colour[1] = 0.0f;
@@ -453,30 +454,59 @@ bool A1::keyInputEvent(int key, int action, int mods) {
 			glfwSetWindowShouldClose(m_window, GL_TRUE);
 			eventHandled = true;
 		}
+
+		// Set shift down is left or right shift is pressed
+		if (key == GLFW_KEY_LEFT_SHIFT || key == GLFW_KEY_RIGHT_SHIFT) {
+			shift_down = true;
+		}
+
 		// Down and Up Key to move avatar down and up, only move when maze created
 		if ((key == GLFW_KEY_DOWN || key == GLFW_KEY_UP) && maze_created) {
+			// Set next potential position
 			int next_pos_z ;
 			if (key == GLFW_KEY_DOWN) {
 				next_pos_z = std::min(avatar_pos[1]+1, (int)DIM);
 			} else {
 				next_pos_z = std::max(avatar_pos[1]-1, -1);
 			}
+			// If avatar is not in the maze, or if next position in the maze is
+			// not a wall move to next position
 			if ( outOfMaze(avatar_pos[0], next_pos_z) ||
 				m.getValue(avatar_pos[0], next_pos_z) == 0) {
+				avatar_pos[1] = next_pos_z;
+			// If next position is a wall, and shift is down, remove wall,
+			// move to next position
+			} else if (m.getValue(avatar_pos[0], next_pos_z) == 1 && shift_down) {
+				m.setValue( avatar_pos[0], next_pos_z, 0 );
 				avatar_pos[1] = next_pos_z;
 			}
 			// Left and Right Key to move avatar left and right
 		} else if ((key == GLFW_KEY_LEFT || key == GLFW_KEY_RIGHT) && maze_created) {
+			// Set next potential position
 			int next_pos_x;
 			if (key == GLFW_KEY_LEFT) {
 				next_pos_x = std::max(avatar_pos[0]-1, -1);
 			} else {
 				next_pos_x = std::min(avatar_pos[0]+1, (int)DIM);
 			}
+			// If avatar is not in the maze, or if next position in the maze is
+			// not a wall move to next position
 			if ( outOfMaze(next_pos_x, avatar_pos[1]) ||
 				m.getValue(next_pos_x, avatar_pos[1]) == 0) {
 				avatar_pos[0] = next_pos_x;
+			// If next position is a wall, and shift is down, remove wall,
+			// move to next position
+			} else if (m.getValue(next_pos_x, avatar_pos[1]) == 1 && shift_down) {
+				m.setValue( next_pos_x, avatar_pos[1], 0);
+				avatar_pos[0] = next_pos_x;
 			}
+		}
+	}
+
+	if (action == GLFW_RELEASE) {
+		// Set shift down to false if shift is released
+		if (key == GLFW_KEY_LEFT_SHIFT || key == GLFW_KEY_RIGHT_SHIFT) {
+			shift_down = false;
 		}
 	}
 

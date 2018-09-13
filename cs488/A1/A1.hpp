@@ -72,6 +72,8 @@ private:
 	// True if the first maze is digged
 	bool maze_created;
 
+	// True if shift key is down
+	bool shift_down;
 	// True if mouse button is currently down.
 	bool m_mouseButtonActive;
 };
