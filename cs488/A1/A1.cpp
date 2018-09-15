@@ -22,7 +22,10 @@ using namespace std;
 static const size_t DIM = 16;
 const float AVATAR_SCALE = 0.5f;
 const float SIZE_CHANGE = 0.1f;
-const float GRID_ANGLE_CHANGE = 0.0125f;
+const float GRID_ANGLE_CHANGE = 0.006f;
+const vec3 DEFAULT_FLOOR_COLOR = vec3(0.0f, 0.0f, 0.5f);
+const vec3 DEFAULT_AVATAR_COLOR = vec3(1.0f, 0.0f, 0.0f);
+const vec3 DEFAULT_CUBE_COLOR = vec3(0.5f, 0.5f, 0.5f);
 const float ZOOM_FACTOR_CHANGE = 0.1f;
 const float MIN_ZOOM_FACTOR = 0.5f;
 const float MAX_ZOOM_FACTOR = 5.0f;
@@ -35,14 +38,17 @@ A1::A1()
 	  m ( Maze(DIM) ),
 		M_Cube_Scale( mat4(1.0f) ),
 		grid_rotation( mat4(1.0f) ),
+		floor_col( DEFAULT_FLOOR_COLOR ),
+		avatar_col( DEFAULT_AVATAR_COLOR ),
+		cube_col( DEFAULT_CUBE_COLOR ),
 		zoom_factor( 1 ),
 		persistent_rotation_dir( 0 ),
 		maze_created( false ),
 		shift_down( false )
 {
-	colour[0] = 0.0f;
-	colour[1] = 0.0f;
-	colour[2] = 0.0f;
+	colour[0] = floor_col.x;
+	colour[1] = floor_col.y;
+	colour[2] = floor_col.z;
 	avatar_pos[0] = -1;
 	avatar_pos[1] = -1;
 	M_Avatar_Scale = glm::scale(M_Avatar_Scale, AVATAR_SCALE * vec3(1.0f));
@@ -142,6 +148,10 @@ void A1::initGrid()
 		-1, 1, -1, 0, 0, -1, -1, 0, -1
 	};
 
+	float floor_verts[] = {
+		-1, 0, -1, -1, 0, DIM+1, DIM+1, 0, -1, DIM+1, 0, DIM+1
+	};
+
 	// Create the vertex array to record buffer assignments.
 	glGenVertexArrays( 1, &m_grid_vao );
 	glBindVertexArray( m_grid_vao );
@@ -157,7 +167,7 @@ void A1::initGrid()
 	glEnableVertexAttribArray( posAttrib );
 	glVertexAttribPointer( posAttrib, 3, GL_FLOAT, GL_FALSE, 0, nullptr );
 
-	// Create the vertex array for cube_verts
+	// Create the vertex array for cube geometry
 	glGenVertexArrays(1, &m_cube_vao);
 	glBindVertexArray( m_cube_vao);
 
@@ -165,6 +175,19 @@ void A1::initGrid()
 	glGenBuffers(1, &m_cube_vbo);
 	glBindBuffer( GL_ARRAY_BUFFER, m_cube_vbo);
 	glBufferData( GL_ARRAY_BUFFER, sizeof(cube_verts), cube_verts, GL_STATIC_DRAW);
+
+	// Specify the means of extracting the position values properly.
+	glEnableVertexAttribArray( posAttrib );
+	glVertexAttribPointer( posAttrib, 3, GL_FLOAT, GL_FALSE, 0, nullptr );
+
+	// Create vertex array for floor geometry
+	glGenVertexArrays( 1, &m_floor_vao );
+	glBindVertexArray( m_floor_vao );
+
+	// Create the cube vertex buffer
+	glGenBuffers( 1, &m_floor_vbo );
+	glBindBuffer( GL_ARRAY_BUFFER, m_floor_vbo );
+	glBufferData( GL_ARRAY_BUFFER, sizeof(floor_verts), floor_verts, GL_STATIC_DRAW );
 
 	// Specify the means of extracting the position values properly.
 	glEnableVertexAttribArray( posAttrib );
@@ -189,6 +212,9 @@ void A1::newMaze() {
 		}
 		// reset wall height to default
 		M_Cube_Scale[1][1] = 1.0f;
+		// Move avatar to start position
+		avatar_pos[1] = getStartPosY();
+		avatar_pos[0] = -1;
 }
 //----------------------------------------------------------------------------------------
 /*
@@ -234,12 +260,36 @@ void A1::guiLogic()
 		// Prefixing a widget name with "##" keeps it from being
 		// displayed.
 
-		ImGui::PushID( 0 );
-		ImGui::ColorEdit3( "##Colour", colour );
-		ImGui::SameLine();
-		if( ImGui::RadioButton( "##Col", &current_col, 0 ) ) {
-			// Select this colour.
+		if( ImGui::ColorEdit3( "##Colour", colour ) ) {
+			switch (current_col) {
+				case 0: floor_col = vec3(colour[0], colour[1], colour[2]);
+					break;
+				case 1: avatar_col = vec3(colour[0], colour[1], colour[2]);
+					break;
+				case 2: cube_col = vec3(colour[0], colour[1], colour[2]);
+					break;
+			}
 		}
+		ImGui::PushID( 0 );
+		if (ImGui::RadioButton( "Floor Color", &current_col, 0 )) {
+			colour[0] = floor_col.x;
+			colour[1] = floor_col.y;
+			colour[2] = floor_col.z;
+		}
+		ImGui::PushID( 1 );
+		if (ImGui::RadioButton( "Avatar Color", &current_col, 1 )) {
+			colour[0] = avatar_col.x;
+			colour[1] = avatar_col.y;
+			colour[2] = avatar_col.z;
+		}
+		ImGui::PushID( 2 );
+		if( ImGui::RadioButton( "Maze Color", &current_col, 2 )) {
+			colour[0] = cube_col.x;
+			colour[1] = cube_col.y;
+			colour[2] = cube_col.z;
+		}
+		ImGui::PopID();
+		ImGui::PopID();
 		ImGui::PopID();
 
 /*
@@ -283,9 +333,14 @@ void A1::draw()
 		glUniform3f( col_uni, 1, 1, 1 );
 		glDrawArrays( GL_LINES, 0, (3+DIM)*4 );
 
+		// Draw the floor
+		glBindVertexArray( m_floor_vao );
+		glUniform3fv( col_uni, 1, value_ptr(floor_col));
+		glDrawArrays( GL_TRIANGLE_STRIP, 0, 4*3 );
+
 		// Draw the cubes
 		glBindVertexArray ( m_cube_vao );
-		glUniform3f( col_uni, 0.5f, 0.5f, 0.5f);
+		glUniform3fv( col_uni, 1, value_ptr(cube_col));
 		mat4 M_Cube_Translate, M_cube;
 
 		// Iterate over the colums of matrix
@@ -306,7 +361,7 @@ void A1::draw()
 		M_Avatar_Translate = glm::translate( W, vec3(avatar_pos[0] +
 			AVATAR_GRID_DISPLACEMENT, 0, avatar_pos[1] + AVATAR_GRID_DISPLACEMENT));
 		M_Avatar = grid_rotation * M_Avatar_Translate * M_Avatar_Scale;
-		glUniform3f( col_uni, 1, 0, 0);
+		glUniform3fv( col_uni, 1, value_ptr(avatar_col));
 		glUniformMatrix4fv( M_uni, 1, GL_FALSE, value_ptr( M_Avatar));
 		glDrawArrays ( GL_TRIANGLES, 0, 10*3*3);
 
@@ -403,14 +458,17 @@ bool A1::mouseScrollEvent(double xOffSet, double yOffSet) {
 	// Zoom in or out.
 	zoom_factor = std::max( MIN_ZOOM_FACTOR, zoom_factor + (float)yOffSet*ZOOM_FACTOR_CHANGE );
 	zoom_factor = std::min( MAX_ZOOM_FACTOR, zoom_factor );
-	view = glm::lookAt(
-		INITIAL_CAMERA_POS * zoom_factor,
-		glm::vec3( 0.0f, 0.0f, 0.0f ),
-		glm::vec3( 0.0f, 1.0f, 0.0f ) );
+	updateViewMatrix (zoom_factor);
 
 	return eventHandled;
 }
 
+void A1::updateViewMatrix (float zoomFactor) {
+	view = glm::lookAt(
+		INITIAL_CAMERA_POS * zoom_factor,
+		glm::vec3( 0.0f, 0.0f, 0.0f ),
+		glm::vec3( 0.0f, 1.0f, 0.0f ) );
+}
 //----------------------------------------------------------------------------------------
 /*
  * Event handler.  Handles window resize events.
@@ -501,6 +559,12 @@ bool A1::keyInputEvent(int key, int action, int mods) {
 				avatar_pos[0] = next_pos_x;
 			}
 		}
+
+		// R key resets transformation and color
+		if (key == GLFW_KEY_R) {
+			reset();
+			eventHandled = true;
+		}
 	}
 
 	if (action == GLFW_RELEASE) {
@@ -513,6 +577,35 @@ bool A1::keyInputEvent(int key, int action, int mods) {
 	return eventHandled;
 }
 
+void A1::reset () {
+	// 	Reset grid rotation
+	persistent_rotation_dir = 0.0f;
+	grid_rotation = mat4(1.0f);
+	// Reset view
+	zoom_factor = 1.0f;
+	updateViewMatrix (zoom_factor);
+	// Reset maze
+	m.reset();
+	maze_created = false;
+	// Reset avatar position
+	avatar_pos[0] = -1;
+	avatar_pos[1] = -1;
+	// Reset colors
+	floor_col = DEFAULT_FLOOR_COLOR;
+	avatar_col = DEFAULT_AVATAR_COLOR;
+	cube_col = DEFAULT_CUBE_COLOR;
+
+}
+
 bool A1::outOfMaze (int x, int y) {
 	return (x < 0 || y < 0 || x > (int)DIM - 1 || y > (int)DIM - 1);
+}
+
+int A1::getStartPosY() {
+	for (int i = 0; i < DIM; i++) {
+		if (m.getValue(0, i) == 0) {
+			return i;
+		}
+	}
+	return -1;
 }

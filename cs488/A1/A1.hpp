@@ -34,6 +34,9 @@ private:
 	void initGrid();
 	void newMaze();
 	bool outOfMaze(int x, int y);
+	void updateViewMatrix(float zoomFactor);
+	void reset();
+	int getStartPosY();
 
 	// Fields related to the shader and uniforms.
 	ShaderProgram m_shader;
@@ -45,6 +48,10 @@ private:
 	// Fields related to grid geometry.
 	GLuint m_grid_vao; // Vertex Array Object
 	GLuint m_grid_vbo; // Vertex Buffer Object
+
+	// Fields related to floor geometry
+	GLuint m_floor_vao;
+	GLuint m_floor_vbo;
 
 	//Fields related to cubes geometry
 	GLuint m_cube_vao;
@@ -60,6 +67,11 @@ private:
 	glm::mat4 grid_rotation;
 
 	float colour[3];
+	// Color for geometries
+	glm::vec3 floor_col;
+	glm::vec3 avatar_col;
+	glm::vec3 cube_col;
+
 	int current_col;
 	// Zoom factor, smaller when camera is closer to the object
 	float zoom_factor;
