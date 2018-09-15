@@ -14,12 +14,17 @@
 #include <glm/gtc/type_ptr.hpp>
 //TODO: DELETE
 #include <glm/gtx/string_cast.hpp>
+#define EYE_POS glm::vec3( 0.0f, 2.*float(DIM)*2.0*M_SQRT1_2, float(DIM)*2.0*M_SQRT1_2 )
 
 using namespace glm;
 using namespace std;
 
 static const size_t DIM = 16;
 const float SIZE_CHANGE = 0.1f;
+const float AMBIENT = 0.3f;
+const float ATTENUATION = 0.5f;
+const float SHININESS = 4.0f;
+const float STRENGTH = 1.0f;
 
 //----------------------------------------------------------------------------------------
 // Constructor
@@ -32,6 +37,7 @@ A1::A1()
 	colour[1] = 0.0f;
 	colour[2] = 0.0f;
 	light_dir = glm::normalize(vec3(1.0f, 1.0f, 2.0f));
+	eye_dir = glm::normalize(EYE_POS);
 }
 
 //----------------------------------------------------------------------------------------
@@ -69,13 +75,18 @@ void A1::init()
 	M_uni = m_shader.getUniformLocation( "M" );
 	col_uni = m_shader.getUniformLocation( "colour" );
 	light_uni = m_shader.getUniformLocation( "lightDir");
+	ambient_uni = m_shader.getUniformLocation( "ambient");
+	atten_uni = m_shader.getUniformLocation( "attenuation");
+	eye_uni = m_shader.getUniformLocation( "EyePosition");
+	shininess_uni = m_shader.getUniformLocation( "shininess");
+	strength_uni = m_shader.getUniformLocation( "strength");
 
 	initGrid();
 
 	// Set up initial view and projection matrices (need to do this here,
 	// since it depends on the GLFW window being set up correctly).
 	view = glm::lookAt(
-		glm::vec3( 0.0f, 2.*float(DIM)*2.0*M_SQRT1_2, float(DIM)*2.0*M_SQRT1_2 ),
+		EYE_POS,
 		glm::vec3( 0.0f, 0.0f, 0.0f ),
 		glm::vec3( 0.0f, 1.0f, 0.0f ) );
 
@@ -275,8 +286,14 @@ void A1::draw()
 
 		// Just draw the grid for now.
 		glBindVertexArray( m_grid_vao );
+		// Set uniforms
 		glUniform3f( col_uni, 1, 1, 1 );
 		glUniform3fv( light_uni, 1, value_ptr(light_dir));
+		glUniform1f( ambient_uni, AMBIENT);
+		glUniform1f( atten_uni, ATTENUATION);
+		glUniform3fv( eye_uni, 1, value_ptr(eye_dir));
+		glUniform1f( shininess_uni, SHININESS);
+		glUniform1f( strength_uni, STRENGTH);
 		glDrawArrays( GL_LINES, 0, (3+DIM)*4 );
 
 		// Draw the cubes
