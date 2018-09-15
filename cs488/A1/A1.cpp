@@ -15,7 +15,10 @@
 #include <glm/gtc/type_ptr.hpp>
 //TODO: DELETE
 #include <glm/gtx/string_cast.hpp>
+
 #define INITIAL_CAMERA_POS glm::vec3(0.0f, 2.*float(DIM)*2.0*M_SQRT1_2, float(DIM)*2.0*M_SQRT1_2)
+#define EYE_POS glm::vec3( 0.0f, 2.*float(DIM)*2.0*M_SQRT1_2, float(DIM)*2.0*M_SQRT1_2 )
+
 using namespace glm;
 using namespace std;
 
@@ -30,6 +33,10 @@ const float ZOOM_FACTOR_CHANGE = 0.1f;
 const float MIN_ZOOM_FACTOR = 0.5f;
 const float MAX_ZOOM_FACTOR = 5.0f;
 const float AVATAR_GRID_DISPLACEMENT = 1.0f - AVATAR_SCALE / 2.0f;
+const float AMBIENT = 0.3f;
+const float ATTENUATION = 0.5f;
+const float SHININESS = 4.0f;
+const float STRENGTH = 1.0f;
 
 //----------------------------------------------------------------------------------------
 // Constructor
@@ -53,6 +60,7 @@ A1::A1()
 	avatar_pos[1] = -1;
 	M_Avatar_Scale = glm::scale(M_Avatar_Scale, AVATAR_SCALE * vec3(1.0f));
 	light_dir = glm::normalize(vec3(1.0f, 1.0f, 2.0f));
+	eye_dir = glm::normalize(EYE_POS);
 }
 
 //----------------------------------------------------------------------------------------
@@ -90,6 +98,11 @@ void A1::init()
 	M_uni = m_shader.getUniformLocation( "M" );
 	col_uni = m_shader.getUniformLocation( "colour" );
 	light_uni = m_shader.getUniformLocation( "lightDir");
+	ambient_uni = m_shader.getUniformLocation( "ambient");
+	atten_uni = m_shader.getUniformLocation( "attenuation");
+	eye_uni = m_shader.getUniformLocation( "EyePosition");
+	shininess_uni = m_shader.getUniformLocation( "shininess");
+	strength_uni = m_shader.getUniformLocation( "strength");
 
 	initGrid();
 
@@ -346,8 +359,14 @@ void A1::draw()
 
 		// Just draw the grid for now.
 		glBindVertexArray( m_grid_vao );
+		// Set uniforms
 		glUniform3f( col_uni, 1, 1, 1 );
 		glUniform3fv( light_uni, 1, value_ptr(light_dir));
+		glUniform1f( ambient_uni, AMBIENT);
+		glUniform1f( atten_uni, ATTENUATION);
+		glUniform3fv( eye_uni, 1, value_ptr(eye_dir));
+		glUniform1f( shininess_uni, SHININESS);
+		glUniform1f( strength_uni, STRENGTH);
 		glDrawArrays( GL_LINES, 0, (3+DIM)*4 );
 
 		// Draw the floor

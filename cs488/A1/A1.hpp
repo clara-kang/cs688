@@ -45,6 +45,12 @@ private:
 	GLint M_uni; // Uniform location for Model matrix.
 	GLint col_uni;   // Uniform location for cube colour.
 	GLint light_uni; // Uniform location for light direction
+	GLint ambient_uni; // Uniform location for ambient light
+	GLint atten_uni; // Uniform location for light direction
+	GLint eye_uni; // Unifrom location for Eye direction
+	GLint shininess_uni;
+	GLint strength_uni;
+
 
 	// Fields related to grid geometry.
 	GLuint m_grid_vao; // Vertex Array Object
@@ -92,4 +98,7 @@ private:
 
 	//Light direction
 	glm::vec3 light_dir;
+
+	//Eye direction
+	glm::vec3 eye_dir;
 };
