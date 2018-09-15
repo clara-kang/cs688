@@ -19,5 +19,5 @@ void main() {
 	} else {
 		specular = pow(specular, shininess) * strength;
 	}
-	fragColor = vec4( colour * diffuse + specular, 1 );
+	fragColor = vec4( colour * diffuse, 1 );
 }

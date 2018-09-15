@@ -34,7 +34,7 @@ const float MIN_ZOOM_FACTOR = 0.5f;
 const float MAX_ZOOM_FACTOR = 5.0f;
 const float AVATAR_GRID_DISPLACEMENT = 1.0f - AVATAR_SCALE / 2.0f;
 const float AMBIENT = 0.3f;
-const float ATTENUATION = 0.5f;
+const float ATTENUATION = 0.8f;
 const float SHININESS = 4.0f;
 const float STRENGTH = 1.0f;
 
@@ -156,8 +156,7 @@ void A1::initGrid()
 		-1, 1, -1, 0, 0, -1, -1, 0, -1
 	};
 
-	float floor_verts[] = {
-		-1, 0, -1, -1, 0, DIM+1, DIM+1, 0, -1, DIM+1, 0, DIM+1
+	float floor_verts[] = {-1, 0, -1, -1, 0, DIM+1, DIM+1, 0, -1, DIM+1, 0, DIM+1};
 
 	float cube_verts_normals[] = {
 		1, 0, 0, 1, 0, 0, 1, 0, 0,
@@ -201,19 +200,6 @@ void A1::initGrid()
 		sizeof(cube_verts_normals), cube_verts_normals);
 
 	// Specify the means of extracting the position values properly.
-	glEnableVertexAttribArray( posAttrib );
-	glVertexAttribPointer( posAttrib, 3, GL_FLOAT, GL_FALSE, 0, nullptr );
-
-	// Create vertex array for floor geometry
-	glGenVertexArrays( 1, &m_floor_vao );
-	glBindVertexArray( m_floor_vao );
-
-	// Create the cube vertex buffer
-	glGenBuffers( 1, &m_floor_vbo );
-	glBindBuffer( GL_ARRAY_BUFFER, m_floor_vbo );
-	glBufferData( GL_ARRAY_BUFFER, sizeof(floor_verts), floor_verts, GL_STATIC_DRAW );
-
-	// Specify the means of extracting the position values properly.
 	//GLint posAttrib = m_shader.getAttribLocation( "position" );
 	GLint normalAttrib = m_shader.getAttribLocation( "VertexNormal" );
 	glEnableVertexAttribArray( posAttrib );
@@ -221,6 +207,19 @@ void A1::initGrid()
 	glEnableVertexAttribArray( normalAttrib );
 	glVertexAttribPointer( normalAttrib, 3, GL_FLOAT, GL_TRUE, 0,
 		(void *)sizeof(cube_verts_pos) );
+
+	// Create vertex array for floor geometry
+	glGenVertexArrays( 1, &m_floor_vao );
+	glBindVertexArray( m_floor_vao );
+
+	// Create the floor vertex buffer
+	glGenBuffers( 1, &m_floor_vbo );
+	glBindBuffer( GL_ARRAY_BUFFER, m_floor_vbo );
+	glBufferData( GL_ARRAY_BUFFER, sizeof(floor_verts), floor_verts, GL_STATIC_DRAW );
+
+	// Specify the means of extracting the position values properly.
+	glEnableVertexAttribArray( posAttrib );
+	glVertexAttribPointer( posAttrib, 3, GL_FLOAT, GL_FALSE, 0, nullptr );
 
 	// Reset state to prevent rogue code from messing with *my*
 	// stuff!
