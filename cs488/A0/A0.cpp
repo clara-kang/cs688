@@ -354,7 +354,6 @@ bool A0::keyInputEvent(int key, int action, int mods) {
 
 	if (action == GLFW_PRESS) {
 		if (key == GLFW_KEY_EQUAL) {
-			cout << "+ key pressed" << endl;
 
 			// increase shape size.
 			m_shape_size += SIZE_CHANGE;
@@ -362,7 +361,6 @@ bool A0::keyInputEvent(int key, int action, int mods) {
 			eventHandled = true;
 		}
 		if (key == GLFW_KEY_MINUS) {
-			cout << "- key pressed" << endl;
 
 			// decrease shape size.
 			m_shape_size -= SIZE_CHANGE;
