@@ -171,6 +171,8 @@ void A1::initGrid()
 		0, 0, -1, 0, 0, -1, 0, 0, -1
 	};
 
+	float floor_verts_normals[] = {0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0};
+
 	// Create the vertex array to record buffer assignments.
 	glGenVertexArrays( 1, &m_grid_vao );
 	glBindVertexArray( m_grid_vao );
@@ -215,11 +217,18 @@ void A1::initGrid()
 	// Create the floor vertex buffer
 	glGenBuffers( 1, &m_floor_vbo );
 	glBindBuffer( GL_ARRAY_BUFFER, m_floor_vbo );
-	glBufferData( GL_ARRAY_BUFFER, sizeof(floor_verts), floor_verts, GL_STATIC_DRAW );
+	glBufferData( GL_ARRAY_BUFFER, sizeof(floor_verts) + sizeof(floor_verts_normals),
+		NULL, GL_STATIC_DRAW );
+	glBufferSubData( GL_ARRAY_BUFFER, 0, sizeof(floor_verts), floor_verts);
+	glBufferSubData( GL_ARRAY_BUFFER, sizeof(floor_verts),
+			sizeof(floor_verts_normals), floor_verts_normals);
 
 	// Specify the means of extracting the position values properly.
 	glEnableVertexAttribArray( posAttrib );
 	glVertexAttribPointer( posAttrib, 3, GL_FLOAT, GL_FALSE, 0, nullptr );
+	glEnableVertexAttribArray( normalAttrib );
+	glVertexAttribPointer( normalAttrib, 3, GL_FLOAT, GL_TRUE, 0,
+		(void *)sizeof(floor_verts) );
 
 	// Reset state to prevent rogue code from messing with *my*
 	// stuff!
@@ -371,7 +380,7 @@ void A1::draw()
 		// Draw the floor
 		glBindVertexArray( m_floor_vao );
 		glUniform3fv( col_uni, 1, value_ptr(floor_col));
-		glDrawArrays( GL_TRIANGLE_STRIP, 0, 4*3 );
+		glDrawArrays( GL_TRIANGLE_STRIP, 0, 4 );
 
 		// Draw the cubes
 		glBindVertexArray ( m_cube_vao );
@@ -386,7 +395,7 @@ void A1::draw()
 					M_Cube_Translate = glm::translate( W, vec3( float(idx)+1, 0, float(idz)+1) );
 					M_cube = grid_rotation * M_Cube_Translate * M_Cube_Scale;
 					glUniformMatrix4fv( M_uni, 1, GL_FALSE, value_ptr( M_cube ) );
-					glDrawArrays( GL_TRIANGLES, 0, 10*3*3)	;
+					glDrawArrays( GL_TRIANGLES, 0, 10*3)	;
 				}
 			}
 		}
@@ -398,7 +407,7 @@ void A1::draw()
 		M_Avatar = grid_rotation * M_Avatar_Translate * M_Avatar_Scale;
 		glUniform3fv( col_uni, 1, value_ptr(avatar_col));
 		glUniformMatrix4fv( M_uni, 1, GL_FALSE, value_ptr( M_Avatar));
-		glDrawArrays ( GL_TRIANGLES, 0, 10*3*3);
+		glDrawArrays ( GL_TRIANGLES, 0, 10*3);
 
 		// Highlight the active square.
 	m_shader.disable();
