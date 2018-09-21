@@ -37,6 +37,7 @@ private:
 	void updateViewMatrix(float zoomFactor);
 	void reset();
 	int getStartPosY();
+	GLuint LoadTexture(const char* filename);
 
 	// Fields related to the shader and uniforms.
 	ShaderProgram m_shader;
@@ -72,6 +73,9 @@ private:
 
 	// Matrix for grid rotation
 	glm::mat4 grid_rotation;
+
+	//Field related to texture
+	GLuint m_texture;
 
 	float colour[3];
 	// Color for geometries

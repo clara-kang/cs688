@@ -5,10 +5,12 @@ uniform float ambient;
 uniform float attenuation;
 uniform float shininess;
 uniform float strength;
+uniform sampler2D tex;
 
 in vec3 Normal;
 in vec3 lightDirection;
 in vec3 Half;
+in vec2 vs_tex_coord;
 out vec4 fragColor;
 
 void main() {
@@ -19,5 +21,5 @@ void main() {
 	} else {
 		specular = pow(specular, shininess) * strength;
 	}
-	fragColor = vec4( colour * diffuse, 1 );
+	fragColor = texture(tex, vs_tex_coord) * vec4( colour * diffuse, 1 );
 }

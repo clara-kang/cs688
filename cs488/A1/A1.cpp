@@ -7,14 +7,13 @@
 
 #include <sys/types.h>
 #include <unistd.h>
+#define STB_IMAGE_IMPLEMENTATION
+#include  "stb_image.h"
 
 #include <imgui/imgui.h>
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
-//#include <glm/gtx/pre_xPos_vector.hpp>
 #include <glm/gtc/type_ptr.hpp>
-//TODO: DELETE
-#include <glm/gtx/string_cast.hpp>
 
 #define INITIAL_CAMERA_POS glm::vec3(0.0f, 2.*float(DIM)*2.0*M_SQRT1_2, float(DIM)*2.0*M_SQRT1_2)
 #define EYE_POS glm::vec3( 0.0f, 2.*float(DIM)*2.0*M_SQRT1_2, float(DIM)*2.0*M_SQRT1_2 )
@@ -156,8 +155,6 @@ void A1::initGrid()
 		-1, 1, -1, 0, 0, -1, -1, 0, -1
 	};
 
-	float floor_verts[] = {-1, 0, -1, -1, 0, DIM+1, DIM+1, 0, -1, DIM+1, 0, DIM+1};
-
 	float cube_verts_normals[] = {
 		1, 0, 0, 1, 0, 0, 1, 0, 0,
 		1, 0, 0, 1, 0, 0, 1, 0, 0,
@@ -171,7 +168,26 @@ void A1::initGrid()
 		0, 0, -1, 0, 0, -1, 0, 0, -1
 	};
 
+	float cube_verts_tex_coords[] {
+		1, 0, 1, 1, 0, 1,
+		1, 0, 0, 1, 0, 0,
+		1, 0, 1, 1, 0, 1,
+		1, 0, 0, 1, 0, 0,
+		1, 0, 1, 1, 0, 1,
+		1, 0, 0, 1, 0, 0,
+		1, 0, 1, 1, 0, 1,
+		1, 0, 0, 1, 0, 0,
+		1, 0, 1, 1, 0, 1,
+		1, 0, 0, 1, 0, 0,
+	};
+
+	float floor_verts[] = {-1, 0, -1, -1, 0, DIM+1, DIM+1, 0, -1, DIM+1, 0, DIM+1};
+
 	float floor_verts_normals[] = {0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0};
+
+	float floor_verts_tex_coords[] = {
+		0.0, 0.0, 0.0, 1.0, 1.0, 0.0, 1.0, 1.0
+	};
 
 	// Create the vertex array to record buffer assignments.
 	glGenVertexArrays( 1, &m_grid_vao );
@@ -185,6 +201,8 @@ void A1::initGrid()
 
 	// Specify the means of extracting the position values properly.
 	GLint posAttrib = m_shader.getAttribLocation( "VertexPosition" );
+	GLint normalAttrib = m_shader.getAttribLocation( "VertexNormal" );
+	GLint texAttrib = m_shader.getAttribLocation( "in_tex_coord" );
 	glEnableVertexAttribArray( posAttrib );
 	glVertexAttribPointer( posAttrib, 3, GL_FLOAT, GL_FALSE, 0, nullptr );
 
@@ -195,20 +213,23 @@ void A1::initGrid()
 	// Create the vertex buffer for the cubes
 	glGenBuffers(1, &m_cube_vbo);
 	glBindBuffer( GL_ARRAY_BUFFER, m_cube_vbo);
-	glBufferData( GL_ARRAY_BUFFER, sizeof(cube_verts_pos)+sizeof(cube_verts_normals),
-		NULL, GL_STATIC_DRAW);
+	glBufferData( GL_ARRAY_BUFFER, sizeof(cube_verts_pos)+sizeof(cube_verts_normals)
+		+sizeof(cube_verts_tex_coords), NULL, GL_STATIC_DRAW);
 	glBufferSubData( GL_ARRAY_BUFFER, 0, sizeof(cube_verts_pos), cube_verts_pos);
 	glBufferSubData( GL_ARRAY_BUFFER, sizeof(cube_verts_pos),
 		sizeof(cube_verts_normals), cube_verts_normals);
+	glBufferSubData( GL_ARRAY_BUFFER, sizeof(cube_verts_pos)+sizeof(cube_verts_normals),
+		sizeof(cube_verts_tex_coords), cube_verts_tex_coords);
 
 	// Specify the means of extracting the position values properly.
-	//GLint posAttrib = m_shader.getAttribLocation( "position" );
-	GLint normalAttrib = m_shader.getAttribLocation( "VertexNormal" );
 	glEnableVertexAttribArray( posAttrib );
 	glVertexAttribPointer( posAttrib, 3, GL_FLOAT, GL_FALSE, 0, nullptr );
 	glEnableVertexAttribArray( normalAttrib );
 	glVertexAttribPointer( normalAttrib, 3, GL_FLOAT, GL_TRUE, 0,
 		(void *)sizeof(cube_verts_pos) );
+	glEnableVertexAttribArray( texAttrib );
+	glVertexAttribPointer( texAttrib, 2, GL_FLOAT, GL_FALSE, 0,
+			(void *)(sizeof(floor_verts)+sizeof(floor_verts_normals)));
 
 	// Create vertex array for floor geometry
 	glGenVertexArrays( 1, &m_floor_vao );
@@ -217,11 +238,13 @@ void A1::initGrid()
 	// Create the floor vertex buffer
 	glGenBuffers( 1, &m_floor_vbo );
 	glBindBuffer( GL_ARRAY_BUFFER, m_floor_vbo );
-	glBufferData( GL_ARRAY_BUFFER, sizeof(floor_verts) + sizeof(floor_verts_normals),
-		NULL, GL_STATIC_DRAW );
+	glBufferData( GL_ARRAY_BUFFER, sizeof(floor_verts) + sizeof(floor_verts_normals)
+		+ sizeof(floor_verts_tex_coords), NULL, GL_STATIC_DRAW );
 	glBufferSubData( GL_ARRAY_BUFFER, 0, sizeof(floor_verts), floor_verts);
 	glBufferSubData( GL_ARRAY_BUFFER, sizeof(floor_verts),
 			sizeof(floor_verts_normals), floor_verts_normals);
+	glBufferSubData( GL_ARRAY_BUFFER, sizeof(floor_verts) + sizeof(floor_verts_normals),
+		sizeof(floor_verts_tex_coords), floor_verts_tex_coords);
 
 	// Specify the means of extracting the position values properly.
 	glEnableVertexAttribArray( posAttrib );
@@ -229,6 +252,9 @@ void A1::initGrid()
 	glEnableVertexAttribArray( normalAttrib );
 	glVertexAttribPointer( normalAttrib, 3, GL_FLOAT, GL_TRUE, 0,
 		(void *)sizeof(floor_verts) );
+	glEnableVertexAttribArray( texAttrib );
+	glVertexAttribPointer( texAttrib, 2, GL_FLOAT, GL_FALSE, 0,
+		(void *)(sizeof(floor_verts)+sizeof(floor_verts_normals)));
 
 	// Reset state to prevent rogue code from messing with *my*
 	// stuff!
@@ -378,11 +404,14 @@ void A1::draw()
 		glDrawArrays( GL_LINES, 0, (3+DIM)*4 );
 
 		// Draw the floor
+		// Load floor texture
+	  m_texture = LoadTexture("rock_texture.jpeg");
 		glBindVertexArray( m_floor_vao );
 		glUniform3fv( col_uni, 1, value_ptr(floor_col));
 		glDrawArrays( GL_TRIANGLE_STRIP, 0, 4 );
 
 		// Draw the cubes
+		//m_texture = LoadTexture("grass_texture.jpg");
 		glBindVertexArray ( m_cube_vao );
 		glUniform3fv( col_uni, 1, value_ptr(cube_col));
 		mat4 M_Cube_Translate, M_cube;
@@ -400,14 +429,14 @@ void A1::draw()
 			}
 		}
 
-		// Draw the avatar
-		glm::mat4 M_Avatar_Translate, M_Avatar;
-		M_Avatar_Translate = glm::translate( W, vec3(avatar_pos[0] +
-			AVATAR_GRID_DISPLACEMENT, 0, avatar_pos[1] + AVATAR_GRID_DISPLACEMENT));
-		M_Avatar = grid_rotation * M_Avatar_Translate * M_Avatar_Scale;
-		glUniform3fv( col_uni, 1, value_ptr(avatar_col));
-		glUniformMatrix4fv( M_uni, 1, GL_FALSE, value_ptr( M_Avatar));
-		glDrawArrays ( GL_TRIANGLES, 0, 10*3);
+		// // Draw the avatar
+		// glm::mat4 M_Avatar_Translate, M_Avatar;
+		// M_Avatar_Translate = glm::translate( W, vec3(avatar_pos[0] +
+		// 	AVATAR_GRID_DISPLACEMENT, 0, avatar_pos[1] + AVATAR_GRID_DISPLACEMENT));
+		// M_Avatar = grid_rotation * M_Avatar_Translate * M_Avatar_Scale;
+		// glUniform3fv( col_uni, 1, value_ptr(avatar_col));
+		// glUniformMatrix4fv( M_uni, 1, GL_FALSE, value_ptr( M_Avatar));
+		// glDrawArrays ( GL_TRIANGLES, 0, 10*3);
 
 		// Highlight the active square.
 	m_shader.disable();
@@ -643,6 +672,26 @@ void A1::reset () {
 
 bool A1::outOfMaze (int x, int y) {
 	return (x < 0 || y < 0 || x > (int)DIM - 1 || y > (int)DIM - 1);
+}
+
+GLuint A1::LoadTexture(const char* filename) {
+	glGenTextures(1, &m_texture);
+	glBindTexture(GL_TEXTURE_2D, m_texture);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_MIRRORED_REPEAT);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_MIRRORED_REPEAT);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+	int width, height, nrChannels;
+	unsigned char *data = stbi_load(filename,
+		&width, &height, &nrChannels, 0);
+	if (data) {
+		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, width, height, 0, GL_RGB,
+			GL_UNSIGNED_BYTE, data);
+			glGenerateMipmap(GL_TEXTURE_2D);
+	} else {
+			cout << "Failed to load texture" << endl;
+	}
+	stbi_image_free(data);
 }
 
 int A1::getStartPosY() {
