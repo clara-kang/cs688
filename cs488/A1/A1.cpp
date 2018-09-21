@@ -32,7 +32,7 @@ const float ZOOM_FACTOR_CHANGE = 0.1f;
 const float MIN_ZOOM_FACTOR = 0.5f;
 const float MAX_ZOOM_FACTOR = 5.0f;
 const float AVATAR_GRID_DISPLACEMENT = 1.0f - AVATAR_SCALE / 2.0f;
-const float AMBIENT = 0.3f;
+const float AMBIENT = 0.5f;
 const float ATTENUATION = 0.8f;
 const float SHININESS = 4.0f;
 const float STRENGTH = 1.0f;
@@ -145,14 +145,14 @@ void A1::initGrid()
 	float cube_verts_pos[] = {
 		0, 0, -1, 0, 1, -1, 0, 1, 0,
 		0, 0, -1, 0, 1, 0, 0, 0, 0,
-		0, 1, -1, -1, 1, -1, 0, 1, 0,
-		-1, 1, -1, -1, 1, 0, 0, 1, 0,
-		-1, 1, 0, -1, 1, -1, -1, 0, -1,
-		-1, 1, 0, -1, 0, -1, -1, 0, 0,
-		0, 1, 0, -1, 1, 0, 0, 0, 0,
-		-1, 1, 0, -1, 0, 0, 0, 0, 0,
-		-1, 1, -1, 0, 1, -1, 0, 0, -1,
-		-1, 1, -1, 0, 0, -1, -1, 0, -1
+		0, 1, 0, 0, 1, -1, -1, 1, -1,
+		0, 1, 0, -1, 1, -1, -1, 1, 0,
+		-1, 0, 0, -1, 1, 0, -1, 1, -1,
+		-1, 0, 0, -1, 1, -1, -1, 0, -1,
+		0, 0, 0, 0, 1, 0, -1, 1, 0,
+		0, 0, 0, -1, 1, 0, -1, 0, 0,
+		-1, 0, -1, -1, 1, -1, 0, 1, -1,
+		-1, 0, -1, 0, 1, -1, 0, 0, -1
 	};
 
 	float cube_verts_normals[] = {
@@ -162,23 +162,23 @@ void A1::initGrid()
 		0, 1, 0, 0, 1, 0, 0, 1, 0,
 		-1, 0, 0, -1, 0, 0, -1, 0, 0,
 		-1, 0, 0, -1, 0, 0, -1, 0, 0,
-		0, 0, 1, 0, 0, 1, 0, 0, 1,
-		0, 0, 1, 0, 0, 1, 0, 0, 1,
+		0, 0, 0, 0, 1, 0, -1, 1, 0,
+		0, 0, 0, -1, 1, 0, -1, 0, 0,
 		0, 0, -1, 0, 0, -1, 0, 0, -1,
 		0, 0, -1, 0, 0, -1, 0, 0, -1
 	};
 
 	float cube_verts_tex_coords[] {
-		1, 0, 1, 1, 0, 1,
-		1, 0, 0, 1, 0, 0,
-		1, 0, 1, 1, 0, 1,
-		1, 0, 0, 1, 0, 0,
-		1, 0, 1, 1, 0, 1,
-		1, 0, 0, 1, 0, 0,
-		1, 0, 1, 1, 0, 1,
-		1, 0, 0, 1, 0, 0,
-		1, 0, 1, 1, 0, 1,
-		1, 0, 0, 1, 0, 0,
+		0.5, 0, 0.5, 0.5, 0, 0.5,
+		0.5, 0, 0, 0.5, 0, 0,
+		0.5, 0, 0.5, 0.5, 0, 0.5,
+		0.5, 0, 0, 0.5, 0, 0,
+		0.5, 0, 0.5, 0.5, 0, 0.5,
+		0.5, 0, 0, 0.5, 0, 0,
+		0.5, 0, 0.5, 0.5, 0, 0.5,
+		0.5, 0, 0, 0.5, 0, 0,
+		0.5, 0, 0.5, 0.5, 0, 0.5,
+		0.5, 0, 0, 0.5, 0, 0,
 	};
 
 	float floor_verts[] = {-1, 0, -1, -1, 0, DIM+1, DIM+1, 0, -1, DIM+1, 0, DIM+1};
@@ -186,7 +186,7 @@ void A1::initGrid()
 	float floor_verts_normals[] = {0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0};
 
 	float floor_verts_tex_coords[] = {
-		0.0, 0.0, 0.0, 1.0, 1.0, 0.0, 1.0, 1.0
+		0.0, 0.0, 0.0, 0.5, 0.5, 0.0, 0.5, 0.5
 	};
 
 	// Create the vertex array to record buffer assignments.
@@ -229,7 +229,7 @@ void A1::initGrid()
 		(void *)sizeof(cube_verts_pos) );
 	glEnableVertexAttribArray( texAttrib );
 	glVertexAttribPointer( texAttrib, 2, GL_FLOAT, GL_FALSE, 0,
-			(void *)(sizeof(floor_verts)+sizeof(floor_verts_normals)));
+			(void *)(sizeof(cube_verts_pos)+sizeof(cube_verts_normals)));
 
 	// Create vertex array for floor geometry
 	glGenVertexArrays( 1, &m_floor_vao );
@@ -262,6 +262,8 @@ void A1::initGrid()
 	glBindBuffer( GL_ARRAY_BUFFER, 0 );
 	glBindBuffer( GL_ELEMENT_ARRAY_BUFFER, 0 );
 
+	m_texture_floor = LoadTexture("Assets/grass_texture.jpg", m_texture_floor);
+	m_texture_cube = LoadTexture("Assets/rock_texture.jpeg", m_texture_cube);
 	// OpenGL has the buffer now, there's no need for us to keep a copy.
 	delete [] verts;
 
@@ -404,14 +406,13 @@ void A1::draw()
 		glDrawArrays( GL_LINES, 0, (3+DIM)*4 );
 
 		// Draw the floor
-		// Load floor texture
-	  m_texture = LoadTexture("rock_texture.jpeg");
+		glBindTexture(GL_TEXTURE_2D, m_texture_floor);
 		glBindVertexArray( m_floor_vao );
 		glUniform3fv( col_uni, 1, value_ptr(floor_col));
 		glDrawArrays( GL_TRIANGLE_STRIP, 0, 4 );
 
 		// Draw the cubes
-		//m_texture = LoadTexture("grass_texture.jpg");
+		glBindTexture(GL_TEXTURE_2D, m_texture_cube);
 		glBindVertexArray ( m_cube_vao );
 		glUniform3fv( col_uni, 1, value_ptr(cube_col));
 		mat4 M_Cube_Translate, M_cube;
@@ -429,14 +430,14 @@ void A1::draw()
 			}
 		}
 
-		// // Draw the avatar
-		// glm::mat4 M_Avatar_Translate, M_Avatar;
-		// M_Avatar_Translate = glm::translate( W, vec3(avatar_pos[0] +
-		// 	AVATAR_GRID_DISPLACEMENT, 0, avatar_pos[1] + AVATAR_GRID_DISPLACEMENT));
-		// M_Avatar = grid_rotation * M_Avatar_Translate * M_Avatar_Scale;
-		// glUniform3fv( col_uni, 1, value_ptr(avatar_col));
-		// glUniformMatrix4fv( M_uni, 1, GL_FALSE, value_ptr( M_Avatar));
-		// glDrawArrays ( GL_TRIANGLES, 0, 10*3);
+		// Draw the avatar
+		glm::mat4 M_Avatar_Translate, M_Avatar;
+		M_Avatar_Translate = glm::translate( W, vec3(avatar_pos[0] +
+			AVATAR_GRID_DISPLACEMENT, 0, avatar_pos[1] + AVATAR_GRID_DISPLACEMENT));
+		M_Avatar = grid_rotation * M_Avatar_Translate * M_Avatar_Scale;
+		glUniform3fv( col_uni, 1, value_ptr(avatar_col));
+		glUniformMatrix4fv( M_uni, 1, GL_FALSE, value_ptr( M_Avatar));
+		glDrawArrays ( GL_TRIANGLES, 0, 10*3);
 
 		// Highlight the active square.
 	m_shader.disable();
@@ -674,9 +675,12 @@ bool A1::outOfMaze (int x, int y) {
 	return (x < 0 || y < 0 || x > (int)DIM - 1 || y > (int)DIM - 1);
 }
 
-GLuint A1::LoadTexture(const char* filename) {
-	glGenTextures(1, &m_texture);
-	glBindTexture(GL_TEXTURE_2D, m_texture);
+GLuint A1::LoadTexture(const char* filename, GLuint texture) {
+	if (!glIsTexture(texture)) {
+			glGenTextures(1, &texture);
+	}
+	glBindTexture(GL_TEXTURE_2D, texture);
+	cout << "load texture" << endl;
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_MIRRORED_REPEAT);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_MIRRORED_REPEAT);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
@@ -692,6 +696,7 @@ GLuint A1::LoadTexture(const char* filename) {
 			cout << "Failed to load texture" << endl;
 	}
 	stbi_image_free(data);
+	return texture;
 }
 
 int A1::getStartPosY() {
