@@ -16,7 +16,7 @@ out vec2 vs_tex_coord;
 
 void main() {
 	gl_Position = P * V * M * vec4(VertexPosition, 1.0);
-	Normal = VertexNormal;
+	Normal = (M * vec4(VertexNormal, 0)).xyz;
 	lightDirection = lightDir;
 	Half = normalize(lightDir + EyePosition);
 	vs_tex_coord = in_tex_coord;
