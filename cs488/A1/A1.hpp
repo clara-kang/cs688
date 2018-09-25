@@ -33,7 +33,6 @@ protected:
 private:
 	void initGrid();
 	void newMaze();
-	bool outOfMaze(int x, int y);
 	void updateViewMatrix(float zoomFactor);
 	void reset();
 	int getStartPosY();

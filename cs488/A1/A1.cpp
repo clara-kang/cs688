@@ -54,8 +54,8 @@ A1::A1()
 	colour[0] = floor_col.x;
 	colour[1] = floor_col.y;
 	colour[2] = floor_col.z;
-	avatar_pos[0] = -1;
-	avatar_pos[1] = -1;
+	avatar_pos[0] = 0;
+	avatar_pos[1] = 0;
 	M_Avatar_Scale = glm::scale(M_Avatar_Scale, AVATAR_SCALE * vec3(1.0f));
 	light_dir = glm::normalize(vec3(1.0f, 1.0f, 2.0f));
 	eye_dir = glm::normalize(INITIAL_CAMERA_POS);
@@ -278,7 +278,7 @@ void A1::newMaze() {
 		M_Cube_Scale[1][1] = 1.0f;
 		// Move avatar to start position
 		avatar_pos[1] = getStartPosY();
-		avatar_pos[0] = -1;
+		avatar_pos[0] = 0;
 }
 //----------------------------------------------------------------------------------------
 /*
@@ -503,7 +503,7 @@ bool A1::mouseButtonInputEvent(int button, int actions, int mods) {
 	}
 
 	// Mouse release, check is mouse is moving to set persistent rotation
-	if ( actions == GLFW_RELEASE) {
+	if ( actions == GLFW_RELEASE && button == 0) {
 		m_mouseButtonActive = false;
 		if (ImGui::GetIO().MouseDelta.x < 0) {
 			persistent_rotation_dir = -1.0f;
@@ -592,14 +592,13 @@ bool A1::keyInputEvent(int key, int action, int mods) {
 			// Set next potential position
 			int next_pos_z ;
 			if (key == GLFW_KEY_DOWN) {
-				next_pos_z = std::min(avatar_pos[1]+1, (int)DIM);
+				next_pos_z = std::min(avatar_pos[1]+1, (int)DIM-1);
 			} else {
-				next_pos_z = std::max(avatar_pos[1]-1, -1);
+				next_pos_z = std::max(avatar_pos[1]-1, 0);
 			}
 			// If avatar is not in the maze, or if next position in the maze is
 			// not a wall move to next position
-			if ( outOfMaze(avatar_pos[0], next_pos_z) ||
-				m.getValue(avatar_pos[0], next_pos_z) == 0) {
+			if ( m.getValue(avatar_pos[0], next_pos_z) == 0) {
 				avatar_pos[1] = next_pos_z;
 			// If next position is a wall, and shift is down, remove wall,
 			// move to next position
@@ -612,14 +611,13 @@ bool A1::keyInputEvent(int key, int action, int mods) {
 			// Set next potential position
 			int next_pos_x;
 			if (key == GLFW_KEY_LEFT) {
-				next_pos_x = std::max(avatar_pos[0]-1, -1);
+				next_pos_x = std::max(avatar_pos[0]-1, 0);
 			} else {
-				next_pos_x = std::min(avatar_pos[0]+1, (int)DIM);
+				next_pos_x = std::min(avatar_pos[0]+1, (int)DIM-1);
 			}
 			// If avatar is not in the maze, or if next position in the maze is
 			// not a wall move to next position
-			if ( outOfMaze(next_pos_x, avatar_pos[1]) ||
-				m.getValue(next_pos_x, avatar_pos[1]) == 0) {
+			if ( m.getValue(next_pos_x, avatar_pos[1]) == 0) {
 				avatar_pos[0] = next_pos_x;
 			// If next position is a wall, and shift is down, remove wall,
 			// move to next position
@@ -657,17 +655,13 @@ void A1::reset () {
 	m.reset();
 	maze_created = false;
 	// Reset avatar position
-	avatar_pos[0] = -1;
-	avatar_pos[1] = -1;
+	avatar_pos[0] = 0;
+	avatar_pos[1] = 0;
 	// Reset colors
 	floor_col = DEFAULT_FLOOR_COLOR;
 	avatar_col = DEFAULT_AVATAR_COLOR;
 	cube_col = DEFAULT_CUBE_COLOR;
 
-}
-
-bool A1::outOfMaze (int x, int y) {
-	return (x < 0 || y < 0 || x > (int)DIM - 1 || y > (int)DIM - 1);
 }
 
 GLuint A1::LoadTexture(const char* filename, GLuint texture) {
