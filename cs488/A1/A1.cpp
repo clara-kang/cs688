@@ -314,16 +314,11 @@ void A1::guiLogic()
 		if( ImGui::Button( "Quit Application" ) ) {
 			glfwSetWindowShouldClose(m_window, GL_TRUE);
 		}
+		if( ImGui::Button( "Reset" ) ) {
+			reset();
+		}
 
-		// Eventually you'll create multiple colour widgets with
-		// radio buttons.  If you use PushID/PopID to give them all
-		// unique IDs, then ImGui will be able to keep them separate.
-		// This is unnecessary with a single colour selector and
-		// radio button, but I'm leaving it in as an example.
-
-		// Prefixing a widget name with "##" keeps it from being
-		// displayed.
-
+		// Colour widgets
 		if( ImGui::ColorEdit3( "##Colour", colour ) ) {
 			switch (current_col) {
 				case 0: floor_col = vec3(colour[0], colour[1], colour[2]);
@@ -661,7 +656,11 @@ void A1::reset () {
 	floor_col = DEFAULT_FLOOR_COLOR;
 	avatar_col = DEFAULT_AVATAR_COLOR;
 	cube_col = DEFAULT_CUBE_COLOR;
-
+	colour[0] = floor_col.x;
+	colour[1] = floor_col.y;
+	colour[2] = floor_col.z;
+	// Reset UI
+	current_col = 0;
 }
 
 GLuint A1::LoadTexture(const char* filename, GLuint texture) {
