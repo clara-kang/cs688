@@ -50,7 +50,7 @@ A1::A1()
 		persistent_rotation_dir( 0 ),
 		maze_created( false ),
 		shift_down( false ),
-		m_mouseButtonActive( false );
+		m_mouseButtonActive( false )
 {
 	colour[0] = floor_col.x;
 	colour[1] = floor_col.y;
