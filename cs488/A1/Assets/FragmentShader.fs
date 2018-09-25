@@ -11,6 +11,7 @@ in vec3 Normal;
 in vec3 lightDirection;
 in vec3 Half;
 in vec2 vs_tex_coord;
+
 out vec4 fragColor;
 
 void main() {
