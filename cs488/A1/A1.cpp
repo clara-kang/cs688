@@ -16,7 +16,6 @@
 #include <glm/gtc/type_ptr.hpp>
 
 #define INITIAL_CAMERA_POS glm::vec3(0.0f, 2.*float(DIM)*2.0*M_SQRT1_2, float(DIM)*2.0*M_SQRT1_2)
-#define EYE_POS glm::vec3( 0.0f, 2.*float(DIM)*2.0*M_SQRT1_2, float(DIM)*2.0*M_SQRT1_2 )
 
 using namespace glm;
 using namespace std;
@@ -59,7 +58,7 @@ A1::A1()
 	avatar_pos[1] = -1;
 	M_Avatar_Scale = glm::scale(M_Avatar_Scale, AVATAR_SCALE * vec3(1.0f));
 	light_dir = glm::normalize(vec3(1.0f, 1.0f, 2.0f));
-	eye_dir = glm::normalize(EYE_POS);
+	eye_dir = glm::normalize(INITIAL_CAMERA_POS);
 }
 
 //----------------------------------------------------------------------------------------
