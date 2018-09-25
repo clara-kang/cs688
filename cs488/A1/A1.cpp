@@ -476,14 +476,10 @@ bool A1::mouseMoveEvent(double xPos, double yPos)
 {
 	bool eventHandled(false);
 	if (!ImGui::IsMouseHoveringAnyWindow()) {
-		// Put some code here to handle rotations.  Probably need to
-		// check whether we're *dragging*, not just moving the mouse.
-		// Probably need some instance variables to track the current
-		// rotation amount, and maybe the previous X position (so
-		// that you can rotate relative to the *change* in X.
+		// rotate the grid with mouse drag
 		if (m_mouseButtonActive) {
 			grid_rotation = glm::rotate ( grid_rotation,
-				(float)(xPos - ImGui::GetIO().MousePosPrev.x) * GRID_ANGLE_CHANGE, vec3(0.0, 1.0, 0.0));
+				(float)(ImGui::GetIO().MousePosPrev.x - xPos) * GRID_ANGLE_CHANGE, vec3(0.0, 1.0, 0.0));
 		}
 	}
 
@@ -679,7 +675,6 @@ GLuint A1::LoadTexture(const char* filename, GLuint texture) {
 			glGenTextures(1, &texture);
 	}
 	glBindTexture(GL_TEXTURE_2D, texture);
-	cout << "load texture" << endl;
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_MIRRORED_REPEAT);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_MIRRORED_REPEAT);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
