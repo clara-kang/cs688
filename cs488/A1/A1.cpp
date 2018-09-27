@@ -312,12 +312,16 @@ void A1::guiLogic()
 	float opacity(0.5f);
 
 	ImGui::Begin("Debug Window", &showDebugWindow, ImVec2(100,100), opacity, windowFlags);
-		if( ImGui::Button( "Quit Application" ) ) {
+		if( ImGui::Button( "Quit Application (Q)" ) ) {
 			glfwSetWindowShouldClose(m_window, GL_TRUE);
 		}
-		if( ImGui::Button( "Reset" ) ) {
+		if( ImGui::Button( "Reset (R)" ) ) {
 			reset();
 		}
+		// Display shortcuts for DIG
+		ImGui::Text( "Dig (D)");
+		ImGui::Text( "Grow bars height (Space). Shrink bars height (Backspace)");
+		ImGui::Text( "Move (Arrow keys). Remove cube (Shift + Arrow keys)");
 
 		// Colour widgets
 		if( ImGui::ColorEdit3( "##Colour", colour ) ) {
@@ -475,7 +479,7 @@ bool A1::mouseMoveEvent(double xPos, double yPos)
 		// rotate the grid with mouse drag
 		if (m_mouseButtonActive) {
 			grid_rotation = glm::rotate ( grid_rotation,
-				(float)(ImGui::GetIO().MousePosPrev.x - xPos) * GRID_ANGLE_CHANGE, vec3(0.0, 1.0, 0.0));
+				(float)(ImGui::GetIO().MouseDelta.x) * GRID_ANGLE_CHANGE, vec3(0.0, 1.0, 0.0));
 		}
 	}
 
