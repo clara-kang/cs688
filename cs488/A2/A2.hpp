@@ -59,7 +59,8 @@ protected:
 	glm::mat4 createViewMatrix(const glm::vec3 viewDir, const glm::vec3 eyePos);
 	glm::mat4 createProjMatrix(float fov, float n, float f);
 	glm::mat4 createWinMatrix();
-	glm::mat4 createToLocalMatrix ();
+	glm::mat4 createToLocalMatrix ( const glm::vec4 u, const glm::vec4 v,
+		const glm::vec4 w, const glm::vec4 e );
 	void drawLine (
 			const glm::vec2 & v0,
 			const glm::vec2 & v1
@@ -70,6 +71,7 @@ protected:
 
 	ShaderProgram m_shader;
 
+	int turn;
 	GLuint m_vao;            // Vertex Array Object
 	GLuint m_vbo_positions;  // Vertex Buffer Object
 	GLuint m_vbo_colours;    // Vertex Buffer Object
@@ -86,7 +88,7 @@ protected:
 	glm::vec3 m_view_dir;
 	glm::vec3 m_eye_pos;
 
-	glm::vec4 local_x, local_y, local_z, local_origin;
+	glm::vec4 local_x, local_y, local_z, local_o;
 
 	// Fields related to projection
 	float m_fov;
