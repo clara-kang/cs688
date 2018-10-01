@@ -56,11 +56,17 @@ protected:
 	void initLineData();
 
 	void setLineColour(const glm::vec3 & colour);
-
+	glm::mat4 createViewMatrix(const glm::vec3 viewDir, const glm::vec3 eyePos);
+	glm::mat4 createProjMatrix(float fov, float n, float f);
+	glm::mat4 createWinMatrix();
+	glm::mat4 createToLocalMatrix ();
 	void drawLine (
 			const glm::vec2 & v0,
 			const glm::vec2 & v1
 	);
+	void reset();
+
+	enum MODE { M_R, M_T, M_S, V_R, V_T, PE};
 
 	ShaderProgram m_shader;
 
@@ -71,5 +77,26 @@ protected:
 	VertexData m_vertexData;
 
 	glm::vec3 m_currentLineColour;
+
+	glm::vec4 octahedronVertices[6]; // Vertices of the octahedron
+	glm::mat4 M, V, P, W;
+	glm::mat4 M_rotation, M_scale, M_translate;
+	glm::mat4 V_rotation, V_scale, V_translate;
+	glm::mat4 M_to_local, M_to_local_inv;
+	glm::vec3 m_view_dir;
+	glm::vec3 m_eye_pos;
+
+	glm::vec4 local_x, local_y, local_z, local_origin;
+
+	// Fields related to projection
+	float m_fov;
+	float m_near, m_far; // near, far plane;
+
+	int m_mode;
+
+	bool m_mouseButtonActive;
+	int mouse_button;
+
+	void printMatrix(glm::mat4 m);
 
 };
