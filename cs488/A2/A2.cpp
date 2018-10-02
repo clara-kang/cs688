@@ -201,29 +201,6 @@ void A2::appLogic()
 {
 	// Call at the beginning of frame, before drawing lines:
 	initLineData();
-
-	// turn = (turn + 1) % 3;
-	// switch (turn) {
-	// 	case 0: {
-	// 		M_rotation = mat4(1.0f);
-	// 		M_rotation[1] = vec4(0.0f, cos(PI*INPUT_SCALE_FACTOR), sin(PI*INPUT_SCALE_FACTOR), 0.0f);
-	// 		M_rotation[2] = vec4(0.0f, -sin(PI*INPUT_SCALE_FACTOR), cos(PI*INPUT_SCALE_FACTOR), 0.0f);
-	// 		break;
-	// 	}
-	// 	case 1: {
-	// 		M_rotation = mat4(1.0f);
-	// 		M_rotation[0] = vec4(cos(PI*INPUT_SCALE_FACTOR), sin(PI*INPUT_SCALE_FACTOR), 0.0f, 0.0f);
-	// 		M_rotation[1] = vec4(-sin(PI*INPUT_SCALE_FACTOR), cos(PI*INPUT_SCALE_FACTOR), 0.0f, 0.0f);
-	// 		break;
-	// 	}
-	// 	case 2: {
-	// 		M_rotation = mat4(1.0f);
-	// 		M_rotation[0] = vec4(cos(PI*INPUT_SCALE_FACTOR), 0.0f, -sin(PI*INPUT_SCALE_FACTOR), 0.0f);
-	// 		M_rotation[2] = vec4(sin(PI*INPUT_SCALE_FACTOR), 0.0f, cos(PI*INPUT_SCALE_FACTOR), 0.0f);
-	// 		break;
-	// 	}
-	// }
-
 	// Transform world gnomons
 	vec4 X_VECTOR_pv = P * V * X_VECTOR;
 	vec4 Y_VECTOR_pv = P * V * Y_VECTOR;
@@ -237,25 +214,10 @@ void A2::appLogic()
 	setLineColour(vec3(0.0f, 0.0f, 1.0f));
 	drawLine(vec2(origin_pv/origin_pv[3]), vec2(Z_VECTOR_pv/Z_VECTOR_pv[3]));
 
-	M = M_rotation * M_scale;
+	M = M_translate * M_rotation * M_scale;
 	M_to_local = createToLocalMatrix((local_x - local_o), (local_y - local_o),
 		(local_z - local_o), local_o);
 	M_to_local_inv = glm::inverse(M_to_local);
-	// float test_dot1 = glm::dot((local_x - local_o), (local_y - local_o));
-	// float test_dot2 = glm::dot((local_x - local_o), (local_z - local_o));
-	// float test_dot3 = glm::dot((local_z - local_o), (local_y - local_o));
-	// cout << "dot1,2,3: " << test_dot1 << ", " << test_dot2 << ", " <<test_dot3 << endl;
-	// vec4 test_x = M_to_local * local_x;
-	// vec4 test_y = M_to_local * local_y;
-	// vec4 test_z = M_to_local * local_z;
-	// vec4 test_o = M_to_local * local_o;
-	// cout << "test x: " << glm::to_string(test_x) << endl;
-	// cout << "test y: " << glm::to_string(test_y) << endl;
-	// cout << "test z: " << glm::to_string(test_z) << endl;
-	// cout << "test o: " << glm::to_string(test_o) << endl;
-	// cout << "M_rotation: " << glm::to_string(M_rotation) << endl;
-	// cout << "m_to_local: " << glm::to_string(M_to_local) << endl;
-	// cout << "m_to_local_inv: " << glm::to_string(M_to_local_inv) << endl;
 
 	// Transform model gnomons
 	local_x = M_to_local_inv * M_translate * M_rotation * M_to_local * local_x;
@@ -263,6 +225,7 @@ void A2::appLogic()
   local_z = M_to_local_inv * M_translate * M_rotation * M_to_local * local_z;
 	local_o = M_to_local_inv * M_translate * M_rotation * M_to_local * local_o;
 
+	// Transform local gnomons to screen space
 	vec4 local_x_trans = P * V * local_x;
 	vec4 local_y_trans = P * V * local_y;
 	vec4 local_z_trans = P * V * local_z;
@@ -276,8 +239,8 @@ void A2::appLogic()
 	drawLine(vec2(local_o_trans/local_o_trans[3]), vec2(local_z_trans/local_z_trans[3]));
 
 	// Transform octahedron vertices
-	vec4 vertices_trans[6];
-	vec2 points[6];
+	vec4 vertices_trans[6]; // vertices in world space
+	vec2 points[6]; // vertices in screen spcace
 	for ( int i = 0; i < 6; i++ ) {
 		octahedronVertices[i] = M_to_local_inv * M  * M_to_local * octahedronVertices[i];
 		vertices_trans[i] = P * V  * octahedronVertices[i];
@@ -326,12 +289,9 @@ void A2::guiLogic()
 		reset();
 	}
 
-	if (ImGui::RadioButton( "Rotate model (R)", &m_mode, 0 )) {
-		cout << m_mode <<endl;
-	}
-
-	if (ImGui::RadioButton( "View mode", &m_mode, 1 )) {
-	}
+	ImGui::RadioButton( "Rotate model (R)", &m_mode, M_R );
+	ImGui::RadioButton( "Scale model (S)", &m_mode, M_S );
+	ImGui::RadioButton( "Translate model (T)", &m_mode, M_T );
 
 	ImGui::Text( "Framerate: %.1f FPS", ImGui::GetIO().Framerate );
 
@@ -441,30 +401,42 @@ bool A2::mouseMoveEvent (
 				break;
 			}
 			case M_S: {
-				float d_scale = ImGui::GetIO().MouseDelta.x * INPUT_SCALE_FACTOR;
+				float d_scale = ImGui::GetIO().MouseDelta.x * INPUT_SCALE_FACTOR ;
+				M_scale = mat4(1.0f);
 				switch ( mouse_button ) {
 					case 0: {// left mouse button, scale model about x axis
 						float d_x = std::max(M_scale[0][0] + d_scale, MIN_SCALE);
 						M_scale[0][0] = d_x;
+						break;
 					}
 					case 1: {// right mouse button, scale model about z axis
 						float d_z = std::max(M_scale[2][2] + d_scale, MIN_SCALE);
 						M_scale[2][2] = d_z;
+						break;
 					}
 					case 2: {// middle mouse button, scale model about y axis
 						float d_y = std::max(M_scale[1][1] + d_scale, MIN_SCALE);
 						M_scale[1][1] = d_y;
+						break;
 					}
 				}
 				break;
 			}
 			case M_T: {
+				float d_translate = ImGui::GetIO().MouseDelta.x * INPUT_SCALE_FACTOR ;
+				M_translate = mat4(1.0f);
 				switch ( mouse_button ) {
-					case 0: {// left mouse button, rotate model about x axis
+					case 0: {// left mouse button, translate model about x axis
+						M_translate[3][0] = d_translate;
+						break;
 					}
-					case 1: {// right mouse button, rotate model about z axis
+					case 1: {// right mouse button, translate model about z axis
+						M_translate[3][2] = d_translate;
+						break;
 					}
-					case 2: {// middle mouse button, rotate model about y axis
+					case 2: {// middle mouse button, translate model about y axis
+						M_translate[3][1] = d_translate;
+						break;
 					}
 				}
 				break;
@@ -528,6 +500,7 @@ bool A2::mouseButtonInputEvent (
 		m_mouseButtonActive = false;
 		M_rotation = mat4(1.0f);
 		M_scale = mat4(1.0f);
+		M_translate = mat4(1.0f);
 	}
 	return eventHandled;
 }
@@ -625,8 +598,8 @@ glm::mat4 A2::createProjMatrix(
 	float h = w;
 	M[0] = vec4(2*n/w, 0.0f, 0.0f, 0.0f);
 	M[1] = vec4(0.0f, 2*n/h, 0.0f, 0.0f);
-	M[2] = vec4(0.0f, 0.0f, (n+f)/(n-f), 2*f*n/(f-n));
-	M[3] = vec4(0.0f, 0.0f ,1.0f, 0.0f);
+	M[2] = vec4(0.0f, 0.0f, (n+f)/(n-f), -2*f*n/(f-n));
+	M[3] = vec4(0.0f, 0.0f ,-1.0f, 0.0f);
 	return glm::transpose(M);
 }
 
