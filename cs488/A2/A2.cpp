@@ -201,7 +201,6 @@ void A2::appLogic()
 	// Transform view basis
 	V = createToLocalMatrix(view_x, view_y, view_z,eye);
 	mat4 V_inv = glm::inverse(V);
-	printMatrix(V_translate);
 	view_x = V_inv * V_rotation * V * view_x;
 	view_y = V_inv * V_rotation * V * view_y;
 	view_z = V_inv * V_rotation * V * view_z;
@@ -674,9 +673,9 @@ void A2::reset() {
 	local_y = Y_VECTOR;
 	local_z = Z_VECTOR;
 	local_o = ORIGIN;
-	view_x = - X_VECTOR;
+	view_x = X_VECTOR;
 	view_y = Y_VECTOR;
-	view_z = - Z_VECTOR;
+	view_z = Z_VECTOR;
 	eye = EYE;
 	V = createToLocalMatrix(view_x, view_y, view_z,eye);
 	P = createProjMatrix(m_fov, m_near, m_far);
