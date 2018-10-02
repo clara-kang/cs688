@@ -19,10 +19,12 @@ using namespace glm;
 #define PI 3.1415
 const float MIN_SCALE = 0.1f;
 const float INPUT_SCALE_FACTOR = 0.001f;
-const vec4 X_VECTOR = glm::vec4(1.0f, 0.0f, 0.0f, 1.0f);
-const vec4 Y_VECTOR = glm::vec4(0.0f, 1.0f, 0.0f, 1.0f);
-const vec4 Z_VECTOR = glm::vec4(0.0f, 0.0f, 1.0f, 1.0f);
+const vec4 X_VECTOR = glm::vec4(1.0f, 0.0f, 0.0f, 0.0f);
+const vec4 Y_VECTOR = glm::vec4(0.0f, 1.0f, 0.0f, 0.0f);
+const vec4 Z_VECTOR = glm::vec4(0.0f, 0.0f, 1.0f, 0.0f);
 const vec4 ORIGIN = glm::vec4(0.0f, 0.0f, 0.0f, 1.0f);
+const vec4 EYE = glm::vec4(0.0f, 0.0f, 15.0f, 1.0f);
+
 //----------------------------------------------------------------------------------------
 // Constructor
 VertexData::VertexData()
@@ -65,11 +67,6 @@ void A2::init()
 	generateVertexBuffers();
 
 	mapVboDataToVertexAttributeLocation();
-
-	V = createViewMatrix(m_view_dir, m_eye_pos);
-	P = createProjMatrix(m_fov, m_near, m_far);
-	turn = 0;
-
 }
 
 //----------------------------------------------------------------------------------------
@@ -201,22 +198,27 @@ void A2::appLogic()
 {
 	// Call at the beginning of frame, before drawing lines:
 	initLineData();
+	//
 	// Transform world gnomons
 	vec4 X_VECTOR_pv = P * V * X_VECTOR;
 	vec4 Y_VECTOR_pv = P * V * Y_VECTOR;
 	vec4 Z_VECTOR_pv = P * V * Z_VECTOR;
 	vec4 origin_pv = P * V * ORIGIN;
+
+	vec4 x_endpoint = origin_pv + X_VECTOR_pv;
+	vec4 y_endpoint = origin_pv + Y_VECTOR_pv;
+	vec4 z_endpoint = origin_pv + Z_VECTOR_pv;
 	// Draw world gnomons
 	setLineColour(vec3(1.0f, 0.0f, 0.0f));
-	drawLine(vec2(origin_pv/origin_pv[3]), vec2(X_VECTOR_pv/X_VECTOR_pv[3]));
+	drawLine(vec2(origin_pv/origin_pv[3]), vec2(x_endpoint/x_endpoint[3]));
 	setLineColour(vec3(0.0f, 1.0f, 0.0f));
-	drawLine(vec2(origin_pv/origin_pv[3]), vec2(Y_VECTOR_pv/Y_VECTOR_pv[3]));
+	drawLine(vec2(origin_pv/origin_pv[3]), vec2(y_endpoint/y_endpoint[3]));
 	setLineColour(vec3(0.0f, 0.0f, 1.0f));
-	drawLine(vec2(origin_pv/origin_pv[3]), vec2(Z_VECTOR_pv/Z_VECTOR_pv[3]));
+	drawLine(vec2(origin_pv/origin_pv[3]), vec2(z_endpoint/z_endpoint[3]));
 
+	// Calculate model transformation matrix, and the matrix to change to model coordinate
 	M = M_translate * M_rotation * M_scale;
-	M_to_local = createToLocalMatrix((local_x - local_o), (local_y - local_o),
-		(local_z - local_o), local_o);
+	M_to_local = createToLocalMatrix(local_x, local_y, local_z, local_o);
 	M_to_local_inv = glm::inverse(M_to_local);
 
 	// Transform model gnomons
@@ -226,10 +228,10 @@ void A2::appLogic()
 	local_o = M_to_local_inv * M_translate * M_rotation * M_to_local * local_o;
 
 	// Transform local gnomons to screen space
-	vec4 local_x_trans = P * V * local_x;
-	vec4 local_y_trans = P * V * local_y;
-	vec4 local_z_trans = P * V * local_z;
 	vec4 local_o_trans = P * V * local_o;
+	vec4 local_x_trans = P * V * local_x + local_o_trans;
+	vec4 local_y_trans = P * V * local_y + local_o_trans;
+	vec4 local_z_trans = P * V * local_z + local_o_trans;
 	// Draw local gnomons
 	setLineColour(vec3(1.0f, 0.0f, 0.0f));
 	drawLine(vec2(local_o_trans/local_o_trans[3]), vec2(local_x_trans/local_x_trans[3]));
@@ -442,14 +444,26 @@ bool A2::mouseMoveEvent (
 				break;
 			}
 			case V_R: {
+				float angle = ImGui::GetIO().MouseDelta.x * INPUT_SCALE_FACTOR;
+				mat4 D_V_rotation = mat4(1.0f);
 				switch ( mouse_button ) {
-					case 0: {// left mouse button, rotate model about x axis
+					case 0: {// left mouse button, rotate view vector about x axis
+						D_V_rotation[1] = vec4(0.0f, cos(angle), sin(angle), 0.0f);
+						D_V_rotation[2] = vec4(0.0f, -sin(angle), cos(angle), 0.0f);
+						break;
 					}
-					case 1: {// right mouse button, rotate model about z axis
+					case 1: {// right mouse button, rotate view vector about z axis
+						D_V_rotation[0] = vec4(cos(angle), sin(angle), 0.0f, 0.0f);
+						D_V_rotation[1] = vec4(-sin(angle), cos(angle), 0.0f, 0.0f);
+						break;
 					}
-					case 2: {// middle mouse button, rotate model about y axis
+					case 2: {// middle mouse button, rotate view vector about y axis
+						D_V_rotation[0] = vec4(cos(angle), 0.0f, -sin(angle), 0.0f);
+						D_V_rotation[2] = vec4(sin(angle), 0.0f, cos(angle), 0.0f);
+						break;
 					}
 				}
+				V_rotation = D_V_rotation;
 				break;
 			}
 			case V_T: {
@@ -501,6 +515,8 @@ bool A2::mouseButtonInputEvent (
 		M_rotation = mat4(1.0f);
 		M_scale = mat4(1.0f);
 		M_translate = mat4(1.0f);
+		V_rotation = mat4(1.0f);
+		V_translate = mat4(1.0f);
 	}
 	return eventHandled;
 }
@@ -570,23 +586,15 @@ bool A2::keyInputEvent (
 	return eventHandled;
 }
 
-glm::mat4 A2::createViewMatrix(
-	const glm::vec3 viewDir,
-	const glm::vec3 eyePos
-) {
-	vec3 up = glm::vec3(0.0f, 1.0f, 0.0f);
-	vec3 w = - glm::normalize( viewDir);
-	vec3 u = glm::normalize( glm::cross(up, w));
-	vec3 v = glm::cross(w,u);
-	mat4 M_1 = mat4(vec4(u,0.0f),vec4(v,0.0f),vec4(w,0.0f),vec4(0,0,0,1));
-	//mat4 M_2 = glm::translate(mat4(1.0f), -eyePos);
-	mat4 M_2 = mat4(1.0f);
-	M_2[0][3] = -eyePos.x;
-	M_2[1][3] = -eyePos.y;
-	M_2[2][3] = -eyePos.z;
-	M_2[3][3] = 1.0f;
-	return glm::transpose(M_1*M_2);
-}
+// glm::mat4 A2::createViewMatrix() {
+// 	mat4 M_1 = mat4(view_x, view_y, view_z, vec4(0.0f, 0.0f, 0.0f, 1.0f));
+// 	mat4 M_2 = mat4(1.0f);
+// 	M_2[0][3] = -eyePos.x;
+// 	M_2[1][3] = -eyePos.y;
+// 	M_2[2][3] = -eyePos.z;
+// 	M_2[3][3] = 1.0f;
+// 	return glm::transpose(M_1*M_2);
+// }
 
 glm::mat4 A2::createProjMatrix(
 	float fov,
@@ -637,8 +645,6 @@ void A2::reset() {
 	m_far = 10.0f;
 	m_fov = PI / 6.0f;
 	M = mat4(1.0f);
-	V = createViewMatrix(m_view_dir, m_eye_pos);
-	P = createProjMatrix(m_fov, m_near, m_far);
 	octahedronVertices[0] = vec4(1.0f, 0.0f, 0.0f, 1.0f);
 	octahedronVertices[1] = vec4(-1.0f, 0.0f, 0.0f, 1.0f);
 	octahedronVertices[2] = vec4(0.0f, 1.0f, 0.0f, 1.0f);
@@ -649,6 +655,12 @@ void A2::reset() {
 	local_y = Y_VECTOR;
 	local_z = Z_VECTOR;
 	local_o = ORIGIN;
+	view_x = - X_VECTOR;
+	view_y = Y_VECTOR;
+	view_z = - Z_VECTOR;
+	eye = EYE;
+	V = createToLocalMatrix(view_x, view_y, view_z,eye);
+	P = createProjMatrix(m_fov, m_near, m_far);
 }
 
 void A2::printMatrix(const glm::mat4 m) {

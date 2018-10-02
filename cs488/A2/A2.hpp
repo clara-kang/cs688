@@ -56,7 +56,7 @@ protected:
 	void initLineData();
 
 	void setLineColour(const glm::vec3 & colour);
-	glm::mat4 createViewMatrix(const glm::vec3 viewDir, const glm::vec3 eyePos);
+	//glm::mat4 createViewMatrix();
 	glm::mat4 createProjMatrix(float fov, float n, float f);
 	glm::mat4 createWinMatrix();
 	glm::mat4 createToLocalMatrix ( const glm::vec4 u, const glm::vec4 v,
@@ -83,12 +83,13 @@ protected:
 	glm::vec4 octahedronVertices[6]; // Vertices of the octahedron
 	glm::mat4 M, V, P, W;
 	glm::mat4 M_rotation, M_scale, M_translate;
-	glm::mat4 V_rotation, V_scale, V_translate;
+	glm::mat4 V_rotation, V_translate;
 	glm::mat4 M_to_local, M_to_local_inv;
 	glm::vec3 m_view_dir;
 	glm::vec3 m_eye_pos;
 
 	glm::vec4 local_x, local_y, local_z, local_o;
+	glm::vec4 view_x, view_y, view_z, eye;
 
 	// Fields related to projection
 	float m_fov;
