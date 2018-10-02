@@ -198,7 +198,15 @@ void A2::appLogic()
 {
 	// Call at the beginning of frame, before drawing lines:
 	initLineData();
-	//
+	// Transform view basis
+	V = createToLocalMatrix(view_x, view_y, view_z,eye);
+	mat4 V_inv = glm::inverse(V);
+	printMatrix(V_translate);
+	view_x = V_inv * V_rotation * V * view_x;
+	view_y = V_inv * V_rotation * V * view_y;
+	view_z = V_inv * V_rotation * V * view_z;
+	eye = V_inv * V_translate * V * eye;
+
 	// Transform world gnomons
 	vec4 X_VECTOR_pv = P * V * X_VECTOR;
 	vec4 Y_VECTOR_pv = P * V * Y_VECTOR;
@@ -209,11 +217,11 @@ void A2::appLogic()
 	vec4 y_endpoint = origin_pv + Y_VECTOR_pv;
 	vec4 z_endpoint = origin_pv + Z_VECTOR_pv;
 	// Draw world gnomons
-	setLineColour(vec3(1.0f, 0.0f, 0.0f));
+	setLineColour(vec3(1.0f, 1.0f, 0.0f));
 	drawLine(vec2(origin_pv/origin_pv[3]), vec2(x_endpoint/x_endpoint[3]));
-	setLineColour(vec3(0.0f, 1.0f, 0.0f));
+	setLineColour(vec3(0.0f, 1.0f, 1.0f));
 	drawLine(vec2(origin_pv/origin_pv[3]), vec2(y_endpoint/y_endpoint[3]));
-	setLineColour(vec3(0.0f, 0.0f, 1.0f));
+	setLineColour(vec3(1.0f, 0.0f, 1.0f));
 	drawLine(vec2(origin_pv/origin_pv[3]), vec2(z_endpoint/z_endpoint[3]));
 
 	// Calculate model transformation matrix, and the matrix to change to model coordinate
@@ -222,10 +230,10 @@ void A2::appLogic()
 	M_to_local_inv = glm::inverse(M_to_local);
 
 	// Transform model gnomons
-	local_x = M_to_local_inv * M_translate * M_rotation * M_to_local * local_x;
-  local_y = M_to_local_inv * M_translate * M_rotation * M_to_local * local_y;
-  local_z = M_to_local_inv * M_translate * M_rotation * M_to_local * local_z;
-	local_o = M_to_local_inv * M_translate * M_rotation * M_to_local * local_o;
+	local_x = M_to_local_inv * M_rotation * M_to_local * local_x;
+  local_y = M_to_local_inv * M_rotation * M_to_local * local_y;
+  local_z = M_to_local_inv * M_rotation * M_to_local * local_z;
+	local_o = M_to_local_inv * M_translate * M_to_local * local_o;
 
 	// Transform local gnomons to screen space
 	vec4 local_o_trans = P * V * local_o;
@@ -294,6 +302,9 @@ void A2::guiLogic()
 	ImGui::RadioButton( "Rotate model (R)", &m_mode, M_R );
 	ImGui::RadioButton( "Scale model (S)", &m_mode, M_S );
 	ImGui::RadioButton( "Translate model (T)", &m_mode, M_T );
+	ImGui::RadioButton( "Rotate view (O)", &m_mode, V_R );
+	ImGui::RadioButton( "Translate view (E)", &m_mode, V_T );
+	ImGui::RadioButton( "Perspective (P)", &m_mode, PE );
 
 	ImGui::Text( "Framerate: %.1f FPS", ImGui::GetIO().Framerate );
 
@@ -467,12 +478,20 @@ bool A2::mouseMoveEvent (
 				break;
 			}
 			case V_T: {
+				float d_translate = ImGui::GetIO().MouseDelta.x * INPUT_SCALE_FACTOR ;
+				V_translate = mat4(1.0f);
 				switch ( mouse_button ) {
-					case 0: {// left mouse button, rotate model about x axis
+					case 0: {// left mouse button, translate view about x axis
+						V_translate[3][0] = d_translate;
+						break;
 					}
-					case 1: {// right mouse button, rotate model about z axis
+					case 1: {// right mouse button, translate view about z axis
+						V_translate[3][2] = d_translate;
+						break;
 					}
-					case 2: {// middle mouse button, rotate model about y axis
+					case 2: {// middle mouse button, translate view about y axis
+						V_translate[3][1] = d_translate;
+						break;
 					}
 				}
 				break;
