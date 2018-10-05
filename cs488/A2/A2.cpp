@@ -264,18 +264,16 @@ void A2::appLogic()
 	}
 	// Draw octahedron
 	setLineColour(vec3(1.0f, 1.0f, 1.0f));
-	drawLine(points[1], points[4]);
-	drawLine(points[4], points[0]);
-	drawLine(points[0], points[5]);
-	drawLine(points[5], points[1]);
-	drawLine(points[0], points[2]);
-	drawLine(points[1], points[2]);
-	drawLine(points[4], points[2]);
-	drawLine(points[5], points[2]);
-	drawLine(points[0], points[3]);
-	drawLine(points[1], points[3]);
-	drawLine(points[4], points[3]);
-	drawLine(points[5], points[3]);
+	bool inside = true;
+	for (int i = 0; i < 12; i++) {
+		vec2 start = points[octahedron_edges[i][0]];
+		vec2 end  = points[octahedron_edges[i][1]];
+		vec2 clipped_start, clipped_end;
+		inside = clip(start, end, &clipped_start, &clipped_end);
+		if (inside) {
+			drawLine(clipped_start, clipped_end);
+		}
+	}
 
 	// Draw Viewport
 	drawLine(vp_tl, vec2(vp_br[0], vp_tl[1]));
@@ -686,6 +684,65 @@ glm::mat4 A2::createWinMatrix(
 	M[3][0] = center[0];
 	M[3][1] = center[1];
 	return M;
+}
+
+// clip against four borders
+bool A2::clip(
+	glm::vec2 start,
+	glm::vec2 end,
+	glm::vec2 *clipped_start,
+	glm::vec2 *clipped_end
+) {
+	*clipped_start = start;
+	*clipped_end = end;
+	glm::vec2 Ps[4];
+	Ps[0] = vp_tl;
+	Ps[1] = vec2(vp_br[0], vp_tl[1]);
+	Ps[2] = vp_br;
+	Ps[3] = vec2(vp_tl[0], vp_br[1]);
+	glm::vec2 Ns[4];
+	Ns[0] = vec2(0.0f, -1.0f);
+	Ns[1] = vec2(-1.0f, 0.0f);
+	Ns[2] = vec2(0.0f, 1.0f);
+	Ns[3] = vec2(1.0f, 0.0f);
+	bool inside = true;
+	for (int i = 0; i < 4 && inside; i++ ){
+		inside = clip_against_line(*clipped_start, *clipped_end, Ps[i], Ns[i], clipped_start, clipped_end);
+	}
+	return inside;
+}
+
+bool A2::clip_against_line(
+	glm::vec2 start,
+	glm::vec2 end,
+	glm::vec2 P,
+	glm::vec2 n,
+	glm::vec2 *clipped_start,
+	glm::vec2 *clipped_end
+) {
+	float l_start = glm::dot((start - P),n);
+	float l_end = glm::dot((end - P),n);
+	vec2 segment[2];
+	if (l_start <=0 && l_end <= 0) { // Both vertices outside halfspace
+		return false;
+	} else if(l_start >= 0 && l_end >= 0) { // Both vertices inside halfspace
+		*clipped_start = start;
+		*clipped_end = end;
+	} else {
+		vec2 A, B;
+		if(l_start < 0 && l_end >= 0) { // Only start vertex outside
+			A = start;
+			B = end;
+		} else {
+			A = end;
+			B = start;
+		}
+		float t = glm::dot((A - P), n)/glm::dot((A - B), n);
+		vec2 L = A + t * (B - A);
+		*clipped_start = L;
+		*clipped_end = B;
+	}
+	return true;
 }
 
 void A2::reset() {

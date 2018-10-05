@@ -60,6 +60,9 @@ protected:
 	glm::mat4 createWinMatrix(const glm::vec2 tl, const glm::vec2 br);
 	glm::mat4 createToLocalMatrix ( const glm::vec4 u, const glm::vec4 v,
 		const glm::vec4 w, const glm::vec4 e );
+	bool clip( glm::vec2 start, glm::vec2 end, glm::vec2 *clipped_start, glm::vec2 *clipped_end);
+	bool clip_against_line( glm::vec2 start, glm::vec2 end, glm::vec2 P, glm::vec2 n,
+		glm::vec2 *clipped_start, glm::vec2 *clipped_end);
 	void drawLine (
 			const glm::vec2 & v0,
 			const glm::vec2 & v1
@@ -80,6 +83,9 @@ protected:
 	glm::vec3 m_currentLineColour;
 
 	glm::vec4 octahedronVertices[6]; // Vertices of the octahedron
+	int octahedron_edges[12][2] = {{1, 4}, {4, 0}, {0, 5}, {5, 1}, {0, 2}, {1, 2},
+		{4, 2}, {5, 2}, {0, 3}, {1, 3}, {4, 3}, {5, 3}}; // Edges of the octahedron
+
 	glm::mat4 M, V, P, W;
 	glm::mat4 M_rotation, M_scale, M_translate;
 	glm::mat4 V_rotation, V_translate;
@@ -91,15 +97,15 @@ protected:
 	float window_width;
 	float window_height;
 
-	glm::vec4 local_x, local_y, local_z, local_o;
-	glm::vec4 view_x, view_y, view_z, eye;
+	glm::vec4 local_x, local_y, local_z, local_o; // model basis
+	glm::vec4 view_x, view_y, view_z, eye; // view basis
 	glm::vec2 vp_tl, vp_br; // viewport top left, viewport bottom right
 	// Fields related to projection
 	float m_fov;
 	float m_near, m_far; // near, far plane;
 
 	int m_mode;
-	bool changing_vp;
+	bool changing_vp; // true after lp is defined
 
 	bool m_mouseButtonActive;
 	int mouse_button;
