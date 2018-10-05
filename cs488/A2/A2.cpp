@@ -19,6 +19,7 @@ using namespace glm;
 #define PI 3.1415
 const float MIN_SCALE = 0.1f;
 const float INPUT_SCALE_FACTOR = 0.001f;
+const float MARGIN = 0.05;
 const vec4 X_VECTOR = glm::vec4(1.0f, 0.0f, 0.0f, 0.0f);
 const vec4 Y_VECTOR = glm::vec4(0.0f, 1.0f, 0.0f, 0.0f);
 const vec4 Z_VECTOR = glm::vec4(0.0f, 0.0f, 1.0f, 0.0f);
@@ -38,7 +39,11 @@ VertexData::VertexData()
 
 //----------------------------------------------------------------------------------------
 // Constructor
-A2::A2() {
+A2::A2()
+	:	window_width(768),
+		window_height(768),
+		changing_vp(false)
+{
 	reset();
 }
 
@@ -67,6 +72,8 @@ void A2::init()
 	generateVertexBuffers();
 
 	mapVboDataToVertexAttributeLocation();
+	W = createWinMatrix(vec2(-(1-MARGIN), (1-MARGIN)),
+		vec2((1-MARGIN), -(1-MARGIN)));
 }
 
 //----------------------------------------------------------------------------------------
@@ -207,10 +214,10 @@ void A2::appLogic()
 	eye = V_inv * V_translate * V * eye;
 
 	// Transform world gnomons
-	vec4 X_VECTOR_pv = P * V * X_VECTOR;
-	vec4 Y_VECTOR_pv = P * V * Y_VECTOR;
-	vec4 Z_VECTOR_pv = P * V * Z_VECTOR;
-	vec4 origin_pv = P * V * ORIGIN;
+	vec4 X_VECTOR_pv = W * P * V * X_VECTOR;
+	vec4 Y_VECTOR_pv = W * P * V * Y_VECTOR;
+	vec4 Z_VECTOR_pv = W * P * V * Z_VECTOR;
+	vec4 origin_pv = W * P * V * ORIGIN;
 
 	vec4 x_endpoint = origin_pv + X_VECTOR_pv;
 	vec4 y_endpoint = origin_pv + Y_VECTOR_pv;
@@ -235,10 +242,10 @@ void A2::appLogic()
 	local_o = M_to_local_inv * M_translate * M_to_local * local_o;
 
 	// Transform local gnomons to screen space
-	vec4 local_o_trans = P * V * local_o;
-	vec4 local_x_trans = P * V * local_x + local_o_trans;
-	vec4 local_y_trans = P * V * local_y + local_o_trans;
-	vec4 local_z_trans = P * V * local_z + local_o_trans;
+	vec4 local_o_trans = W * P * V * local_o;
+	vec4 local_x_trans = W * P * V * local_x + local_o_trans;
+	vec4 local_y_trans = W * P * V * local_y + local_o_trans;
+	vec4 local_z_trans = W * P * V * local_z + local_o_trans;
 	// Draw local gnomons
 	setLineColour(vec3(1.0f, 0.0f, 0.0f));
 	drawLine(vec2(local_o_trans/local_o_trans[3]), vec2(local_x_trans/local_x_trans[3]));
@@ -252,7 +259,7 @@ void A2::appLogic()
 	vec2 points[6]; // vertices in screen spcace
 	for ( int i = 0; i < 6; i++ ) {
 		octahedronVertices[i] = M_to_local_inv * M  * M_to_local * octahedronVertices[i];
-		vertices_trans[i] = P * V  * octahedronVertices[i];
+		vertices_trans[i] = W * P * V  * octahedronVertices[i];
 		points[i] = vec2(vertices_trans[i]/vertices_trans[i][3]);
 	}
 	// Draw octahedron
@@ -269,6 +276,12 @@ void A2::appLogic()
 	drawLine(points[1], points[3]);
 	drawLine(points[4], points[3]);
 	drawLine(points[5], points[3]);
+
+	// Draw Viewport
+	drawLine(vp_tl, vec2(vp_br[0], vp_tl[1]));
+	drawLine(vec2(vp_br[0], vp_tl[1]), vp_br);
+	drawLine(vp_br, vec2(vp_tl[0], vp_br[1]));
+	drawLine(vec2(vp_tl[0], vp_br[1]), vp_tl);
 
 }
 
@@ -304,6 +317,7 @@ void A2::guiLogic()
 	ImGui::RadioButton( "Rotate view (O)", &m_mode, V_R );
 	ImGui::RadioButton( "Translate view (E)", &m_mode, V_T );
 	ImGui::RadioButton( "Perspective (P)", &m_mode, PE );
+	ImGui::RadioButton( "Viewport (V)", &m_mode, VP );
 
 	ImGui::Text( "Framerate: %.1f FPS", ImGui::GetIO().Framerate );
 
@@ -506,6 +520,12 @@ bool A2::mouseMoveEvent (
 				}
 				break;
 			}
+			case VP: {
+				vp_br = vec2(ImGui::GetIO().MousePos.x, ImGui::GetIO().MousePos.y);
+				vp_br[0] = vp_br[0] * 2.0f / window_width - 1.0f;
+				vp_br[1] = 1.0f - vp_br[1] * 2.0f / window_height;
+				W = createWinMatrix(vp_tl, vp_br);
+			}
 		}
 	}
 
@@ -526,6 +546,14 @@ bool A2::mouseButtonInputEvent (
 		if (!ImGui::IsMouseHoveringAnyWindow()) {
 			m_mouseButtonActive = true;
 			mouse_button = button;
+			if (m_mode == VP) {
+				vp_tl = vec2(ImGui::GetIO().MousePos.x, ImGui::GetIO().MousePos.y);
+				vp_tl[0] = vp_tl[0] * 2.0f / window_width - 1.0f;
+				vp_tl[1] = 1.0f - vp_tl[1] * 2.0f / window_height;
+				vp_br = vp_tl;
+				W = createWinMatrix(vp_tl, vp_br);
+				changing_vp = true;
+			}
 		}
 	}
 	if ( actions == GLFW_RELEASE ) {
@@ -535,6 +563,13 @@ bool A2::mouseButtonInputEvent (
 		M_translate = mat4(1.0f);
 		V_rotation = mat4(1.0f);
 		V_translate = mat4(1.0f);
+		if (changing_vp) {
+			vp_br = vec2(ImGui::GetIO().MousePos.x, ImGui::GetIO().MousePos.y);
+			vp_br[0] = vp_br[0] * 2.0f / window_width - 1.0f;
+			vp_br[1] = 1.0f - vp_br[1] * 2.0f / window_height;
+			W = createWinMatrix(vp_tl, vp_br);
+			changing_vp = false;
+		}
 	}
 	return eventHandled;
 }
@@ -565,7 +600,8 @@ bool A2::windowResizeEvent (
 	bool eventHandled(false);
 
 	// Fill in with event handling code...
-
+	window_width = width;
+	window_height = height;
 	return eventHandled;
 }
 
@@ -604,16 +640,6 @@ bool A2::keyInputEvent (
 	return eventHandled;
 }
 
-// glm::mat4 A2::createViewMatrix() {
-// 	mat4 M_1 = mat4(view_x, view_y, view_z, vec4(0.0f, 0.0f, 0.0f, 1.0f));
-// 	mat4 M_2 = mat4(1.0f);
-// 	M_2[0][3] = -eyePos.x;
-// 	M_2[1][3] = -eyePos.y;
-// 	M_2[2][3] = -eyePos.z;
-// 	M_2[3][3] = 1.0f;
-// 	return glm::transpose(M_1*M_2);
-// }
-
 glm::mat4 A2::createProjMatrix(
 	float fov,
 	float n,
@@ -629,6 +655,7 @@ glm::mat4 A2::createProjMatrix(
 	return glm::transpose(M);
 }
 
+// change of basis from world to given basis
 glm::mat4 A2::createToLocalMatrix (
 	const glm::vec4 u,
 	const glm::vec4 v,
@@ -648,8 +675,17 @@ glm::mat4 A2::createToLocalMatrix (
 
 // viewport to window transformation matrix
 glm::mat4 A2::createWinMatrix(
+	const glm::vec2 tl,
+	const glm::vec2 br
 ) {
-	M = mat4(1.0f);
+	mat4 M = mat4(1.0f);
+	vec2 dim = br - tl;
+	vec2 center = (tl + br)/2.0f;
+	M[0][0] = dim[0]/2.0f;
+	M[1][1] = -dim[1]/2.0f;
+	M[3][0] = center[0];
+	M[3][1] = center[1];
+	return M;
 }
 
 void A2::reset() {
@@ -679,6 +715,8 @@ void A2::reset() {
 	eye = EYE;
 	V = createToLocalMatrix(view_x, view_y, view_z,eye);
 	P = createProjMatrix(m_fov, m_near, m_far);
+	vp_tl = vec2(-(1-MARGIN), (1-MARGIN));
+	vp_br = vec2((1-MARGIN), -(1-MARGIN));
 }
 
 void A2::printMatrix(const glm::mat4 m) {

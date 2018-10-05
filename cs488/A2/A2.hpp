@@ -56,9 +56,8 @@ protected:
 	void initLineData();
 
 	void setLineColour(const glm::vec3 & colour);
-	//glm::mat4 createViewMatrix();
 	glm::mat4 createProjMatrix(float fov, float n, float f);
-	glm::mat4 createWinMatrix();
+	glm::mat4 createWinMatrix(const glm::vec2 tl, const glm::vec2 br);
 	glm::mat4 createToLocalMatrix ( const glm::vec4 u, const glm::vec4 v,
 		const glm::vec4 w, const glm::vec4 e );
 	void drawLine (
@@ -67,7 +66,7 @@ protected:
 	);
 	void reset();
 
-	enum MODE { M_R, M_T, M_S, V_R, V_T, PE};
+	enum MODE { M_R, M_T, M_S, V_R, V_T, PE, VP};
 
 	ShaderProgram m_shader;
 
@@ -88,14 +87,19 @@ protected:
 	glm::vec3 m_view_dir;
 	glm::vec3 m_eye_pos;
 
+	// Window width and height
+	float window_width;
+	float window_height;
+
 	glm::vec4 local_x, local_y, local_z, local_o;
 	glm::vec4 view_x, view_y, view_z, eye;
-
+	glm::vec2 vp_tl, vp_br; // viewport top left, viewport bottom right
 	// Fields related to projection
 	float m_fov;
 	float m_near, m_far; // near, far plane;
 
 	int m_mode;
+	bool changing_vp;
 
 	bool m_mouseButtonActive;
 	int mouse_button;
