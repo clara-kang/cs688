@@ -45,6 +45,12 @@ A2::A2()
 		changing_vp(false)
 {
 	reset();
+	world_gnomons_color[0] = vec3(1.0f, 1.0f, 0.0f);
+	world_gnomons_color[1] = vec3(1.0f, 0.0f, 1.0f);
+	world_gnomons_color[2] = vec3(0.0f, 1.0f, 1.0f);
+	local_gnomons_color[0] = vec3(1.0f, 0.0f, 0.0f);
+	local_gnomons_color[1] = vec3(0.0f, 1.0f, 0.0f);
+	local_gnomons_color[2] = vec3(0.0f, 0.0f, 1.0f);
 }
 
 //----------------------------------------------------------------------------------------
@@ -214,21 +220,39 @@ void A2::appLogic()
 	eye = V_inv * V_translate * V * eye;
 
 	// Transform world gnomons
-	vec4 X_VECTOR_pv = W * P * V * X_VECTOR;
-	vec4 Y_VECTOR_pv = W * P * V * Y_VECTOR;
-	vec4 Z_VECTOR_pv = W * P * V * Z_VECTOR;
-	vec4 origin_pv = W * P * V * ORIGIN;
+	vec4 X_VECTOR_pv = V * X_VECTOR;
+	vec4 Y_VECTOR_pv = V * Y_VECTOR;
+	vec4 Z_VECTOR_pv = V * Z_VECTOR;
+	vec4 origin_pv = V * ORIGIN;
 
 	vec4 x_endpoint = origin_pv + X_VECTOR_pv;
 	vec4 y_endpoint = origin_pv + Y_VECTOR_pv;
 	vec4 z_endpoint = origin_pv + Z_VECTOR_pv;
-	// Draw world gnomons
-	setLineColour(vec3(1.0f, 1.0f, 0.0f));
-	drawLine(vec2(origin_pv/origin_pv[3]), vec2(x_endpoint/x_endpoint[3]));
-	setLineColour(vec3(0.0f, 1.0f, 1.0f));
-	drawLine(vec2(origin_pv/origin_pv[3]), vec2(y_endpoint/y_endpoint[3]));
-	setLineColour(vec3(1.0f, 0.0f, 1.0f));
-	drawLine(vec2(origin_pv/origin_pv[3]), vec2(z_endpoint/z_endpoint[3]));
+
+	vec2 start, end, clipped_start, clipped_end;
+	vec4 start_4 = origin_pv;
+	vec4 end_4[3];
+	end_4[0] = x_endpoint;
+	end_4[1] = y_endpoint;
+	end_4[2] = z_endpoint;
+	vec4 clipped_start_4, clipped_end_4;
+	bool inside = true;
+	for (int i = 0; i < 3; i++) {
+		inside = clip_against_near(start_4, end_4[i], &clipped_start_4, &clipped_end_4);
+		if (inside) {
+			inside = clip_against_far(clipped_start_4, clipped_end_4, &clipped_start_4, &clipped_end_4);
+			if (inside) {
+				clipped_start_4 = W * P * clipped_start_4;
+				clipped_end_4 = W * P * clipped_end_4;
+				start = vec2(clipped_start_4/(float)clipped_start_4[3]);
+				end = vec2(clipped_end_4/(float)clipped_end_4[3]);
+				if (clip(start, end, &clipped_start, &clipped_end)) {
+					setLineColour(world_gnomons_color[i]);
+					drawLine(clipped_start, clipped_end);
+				}
+			}
+		}
+	}
 
 	// Calculate model transformation matrix, and the matrix to change to model coordinate
 	M = M_translate * M_rotation * M_scale;
@@ -242,36 +266,59 @@ void A2::appLogic()
 	local_o = M_to_local_inv * M_translate * M_to_local * local_o;
 
 	// Transform local gnomons to screen space
-	vec4 local_o_trans = W * P * V * local_o;
-	vec4 local_x_trans = W * P * V * local_x + local_o_trans;
-	vec4 local_y_trans = W * P * V * local_y + local_o_trans;
-	vec4 local_z_trans = W * P * V * local_z + local_o_trans;
-	// Draw local gnomons
-	setLineColour(vec3(1.0f, 0.0f, 0.0f));
-	drawLine(vec2(local_o_trans/local_o_trans[3]), vec2(local_x_trans/local_x_trans[3]));
-	setLineColour(vec3(0.0f, 1.0f, 0.0f));
-	drawLine(vec2(local_o_trans/local_o_trans[3]), vec2(local_y_trans/local_y_trans[3]));
-	setLineColour(vec3(0.0f, 0.0f, 1.0f));
-	drawLine(vec2(local_o_trans/local_o_trans[3]), vec2(local_z_trans/local_z_trans[3]));
+	vec4 local_o_trans = V * local_o;
+	vec4 local_x_trans = V * local_x + local_o_trans;
+	vec4 local_y_trans = V * local_y + local_o_trans;
+	vec4 local_z_trans = V * local_z + local_o_trans;
+
+	start_4 = local_o_trans;
+	end_4[0] = local_x_trans;
+	end_4[1] = local_y_trans;
+	end_4[2] = local_z_trans;
+	for (int i = 0; i < 3; i++) {
+		inside = clip_against_near(start_4, end_4[i], &clipped_start_4, &clipped_end_4);
+		if (inside) {
+			inside = clip_against_far(clipped_start_4, clipped_end_4, &clipped_start_4, &clipped_end_4);
+			if (inside) {
+				clipped_start_4 = W * P * clipped_start_4;
+				clipped_end_4 = W * P * clipped_end_4;
+				start = vec2(clipped_start_4/clipped_start_4[3]);
+				end = vec2(clipped_end_4/clipped_end_4[3]);
+				if (clip(start, end, &clipped_start, &clipped_end)) {
+					setLineColour(local_gnomons_color[i]);
+					drawLine(clipped_start, clipped_end);
+				}
+			}
+		}
+	}
+
 
 	// Transform octahedron vertices
-	vec4 vertices_trans[6]; // vertices in world space
-	vec2 points[6]; // vertices in screen spcace
+	vec4 vertices_view[6]; // vertices in view space
 	for ( int i = 0; i < 6; i++ ) {
 		octahedronVertices[i] = M_to_local_inv * M  * M_to_local * octahedronVertices[i];
-		vertices_trans[i] = W * P * V  * octahedronVertices[i];
-		points[i] = vec2(vertices_trans[i]/vertices_trans[i][3]);
+		vertices_view[i] = V  * octahedronVertices[i];
 	}
 	// Draw octahedron
 	setLineColour(vec3(1.0f, 1.0f, 1.0f));
-	bool inside = true;
 	for (int i = 0; i < 12; i++) {
-		vec2 start = points[octahedron_edges[i][0]];
-		vec2 end  = points[octahedron_edges[i][1]];
-		vec2 clipped_start, clipped_end;
-		inside = clip(start, end, &clipped_start, &clipped_end);
+		vec4 start = vertices_view[octahedron_edges[i][0]];
+		vec4 end  = vertices_view[octahedron_edges[i][1]];
+		vec4 clipped_start, clipped_end;
+		inside = clip_against_near(start, end, &clipped_start, &clipped_end);
 		if (inside) {
-			drawLine(clipped_start, clipped_end);
+			inside = clip_against_far(clipped_start, clipped_end, &clipped_start, &clipped_end);
+			if (inside) {
+				vec2 start_p, end_p, clipped_start_p, clipped_end_p;
+				clipped_start = W * P * clipped_start;
+				clipped_end = W * P * clipped_end;
+				start_p = vec2(clipped_start/clipped_start[3]);
+				end_p = vec2(clipped_end/clipped_end[3]);
+				inside = clip(start_p, end_p, &clipped_start_p, &clipped_end_p);
+				if (inside) {
+					drawLine(clipped_start_p, clipped_end_p);
+				}
+			}
 		}
 	}
 
@@ -316,7 +363,7 @@ void A2::guiLogic()
 	ImGui::RadioButton( "Translate view (E)", &m_mode, V_T );
 	ImGui::RadioButton( "Perspective (P)", &m_mode, PE );
 	ImGui::RadioButton( "Viewport (V)", &m_mode, VP );
-
+	ImGui::Text( "FOV: %.1f, near: %.1f, far: %.1f", m_fov, m_near, m_far );
 	ImGui::Text( "Framerate: %.1f FPS", ImGui::GetIO().Framerate );
 
 	ImGui::End();
@@ -509,13 +556,23 @@ bool A2::mouseMoveEvent (
 			}
 			case PE: {
 				switch ( mouse_button ) {
-					case 0: {// left mouse button, rotate model about x axis
+					case 0: {// left mouse button, change fov in [5, 160] degrees
+						float next_fov = m_fov + ImGui::GetIO().MouseDelta.x * INPUT_SCALE_FACTOR;
+						next_fov = std::max(5.0f*2.0f*(float)PI/360.0f, next_fov);
+						next_fov = std::min(160.0f*2.0f*(float)PI/360.0f, next_fov);
+						m_fov = next_fov;
+						break;
 					}
-					case 1: {// right mouse button, rotate model about z axis
+					case 1: {// right mouse button, change far plane
+						m_far = m_far + ImGui::GetIO().MouseDelta.x * INPUT_SCALE_FACTOR * 5.0f;
+						break;
 					}
-					case 2: {// middle mouse button, rotate model about y axis
+					case 2: {// middle mouse button, change near plane
+						m_near = m_near + ImGui::GetIO().MouseDelta.x * INPUT_SCALE_FACTOR * 5.0f;
+						break;
 					}
 				}
+				P = createProjMatrix(m_fov, m_near, m_far);
 				break;
 			}
 			case VP: {
@@ -712,6 +769,62 @@ bool A2::clip(
 	return inside;
 }
 
+bool A2::clip_against_near(
+	glm::vec4 start,
+	glm::vec4 end,
+	glm::vec4 *clipped_start,
+	glm::vec4 *clipped_end
+) {
+	*clipped_start = start;
+	*clipped_end = end;
+	vec4 A, B;
+	if (start[2] > -m_near && end[2] > -m_near) {
+		return false;
+	} else if (start[2] <= -m_near && end[2] <= -m_near) {
+		return true;
+	}	else {
+		if (start[2] >= -m_near && end[2] <= -m_near) {
+			A = start;
+			B = end;
+		} else if (start[2] <= -m_near && end[2] >= -m_near) {
+			A = end;
+			B = start;
+		}
+		float t = (-m_near - B[2]) / (A[2] - B[2]);
+		*clipped_start = B;
+		*clipped_end = B + t*(A-B);
+	}
+	return true;
+}
+
+bool A2::clip_against_far(
+	glm::vec4 start,
+	glm::vec4 end,
+	glm::vec4 *clipped_start,
+	glm::vec4 *clipped_end
+) {
+	*clipped_start = start;
+	*clipped_end = end;
+	vec4 A, B;
+	if (start[2] < -m_far && end[2] < -m_far) {
+		return false;
+	} else if (start[2] >= -m_far && end[2] >= -m_far) {
+		return true;
+	}	else {
+		if (start[2] <= -m_far && end[2] >= -m_far) {
+			A = start;
+			B = end;
+		} else if (start[2] >= -m_far && end[2] <= -m_far) {
+			A = end;
+			B = start;
+		}
+		float t = (B[2] + m_far) / (B[2] - A[2]);
+		*clipped_start = B;
+		*clipped_end = B + t*(A-B);
+	}
+	return true;
+}
+
 bool A2::clip_against_line(
 	glm::vec2 start,
 	glm::vec2 end,
@@ -752,8 +865,8 @@ void A2::reset() {
 	M_scale = mat4(1.0f);
 	m_view_dir = vec3(0.0f, 0.0f, -1.0f);
 	m_eye_pos = vec3(0.0f, 0.0f, 15.0f);
-	m_near = 0.5f;
-	m_far = 10.0f;
+	m_near = 14.0f;
+	m_far = 18.0f;
 	m_fov = PI / 6.0f;
 	M = mat4(1.0f);
 	octahedronVertices[0] = vec4(1.0f, 0.0f, 0.0f, 1.0f);

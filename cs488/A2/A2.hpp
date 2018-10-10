@@ -63,6 +63,8 @@ protected:
 	bool clip( glm::vec2 start, glm::vec2 end, glm::vec2 *clipped_start, glm::vec2 *clipped_end);
 	bool clip_against_line( glm::vec2 start, glm::vec2 end, glm::vec2 P, glm::vec2 n,
 		glm::vec2 *clipped_start, glm::vec2 *clipped_end);
+	bool clip_against_near( glm::vec4 start, glm::vec4 end, glm::vec4 *clipped_start, glm::vec4 *clipped_end);
+	bool clip_against_far( glm::vec4 start, glm::vec4 end, glm::vec4 *clipped_start, glm::vec4 *clipped_end);
 	void drawLine (
 			const glm::vec2 & v0,
 			const glm::vec2 & v1
@@ -86,6 +88,7 @@ protected:
 	int octahedron_edges[12][2] = {{1, 4}, {4, 0}, {0, 5}, {5, 1}, {0, 2}, {1, 2},
 		{4, 2}, {5, 2}, {0, 3}, {1, 3}, {4, 3}, {5, 3}}; // Edges of the octahedron
 
+	// Transformation matrices
 	glm::mat4 M, V, P, W;
 	glm::mat4 M_rotation, M_scale, M_translate;
 	glm::mat4 V_rotation, V_translate;
@@ -104,6 +107,11 @@ protected:
 	float m_fov;
 	float m_near, m_far; // near, far plane;
 
+	// Gnomons color
+	glm::vec3 world_gnomons_color[3];
+	glm::vec3 local_gnomons_color[3];
+
+	// Current mode
 	int m_mode;
 	bool changing_vp; // true after lp is defined
 
