@@ -212,12 +212,13 @@ void A2::appLogic()
 	// Call at the beginning of frame, before drawing lines:
 	initLineData();
 	// Transform view basis
-	V = createToLocalMatrix(view_x, view_y, view_z,eye);
-	mat4 V_inv = glm::inverse(V);
-	view_x = V_inv * V_rotation * V * view_x;
-	view_y = V_inv * V_rotation * V * view_y;
-	view_z = V_inv * V_rotation * V * view_z;
-	eye = V_inv * V_translate * V * eye;
+	// V = createToLocalMatrix(view_x, view_y, view_z,eye);
+	// V_to_local = createToLocalMatrix(view_x, view_y, view_z,eye);
+	// V_to_local_inv = glm::inverse(V_to_local);
+	// view_x = V_to_local_inv * V_rotation * V_to_local * view_x;
+	// view_y = V_to_local_inv * V_rotation * V_to_local * view_y;
+	// view_z = V_to_local_inv * V_rotation * V_to_local * view_z;
+	// eye = V_to_local_inv * V_translate * V_to_local * eye;
 
 	// Transform world gnomons
 	vec4 X_VECTOR_pv = V * X_VECTOR;
@@ -519,6 +520,7 @@ bool A2::mouseMoveEvent (
 					case 0: {// left mouse button, rotate view vector about x axis
 						D_V_rotation[1] = vec4(0.0f, cos(angle), sin(angle), 0.0f);
 						D_V_rotation[2] = vec4(0.0f, -sin(angle), cos(angle), 0.0f);
+
 						break;
 					}
 					case 1: {// right mouse button, rotate view vector about z axis
@@ -533,6 +535,7 @@ bool A2::mouseMoveEvent (
 					}
 				}
 				V_rotation = D_V_rotation;
+				V = V_rotation * V;
 				break;
 			}
 			case V_T: {
@@ -552,6 +555,7 @@ bool A2::mouseMoveEvent (
 						break;
 					}
 				}
+				V = V_translate * V;
 				break;
 			}
 			case PE: {

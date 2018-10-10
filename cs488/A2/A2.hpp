@@ -91,7 +91,7 @@ protected:
 	// Transformation matrices
 	glm::mat4 M, V, P, W;
 	glm::mat4 M_rotation, M_scale, M_translate;
-	glm::mat4 V_rotation, V_translate;
+	glm::mat4 V_rotation, V_translate, V_to_local, V_to_local_inv;
 	glm::mat4 M_to_local, M_to_local_inv;
 	glm::vec3 m_view_dir;
 	glm::vec3 m_eye_pos;
