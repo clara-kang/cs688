@@ -211,15 +211,6 @@ void A2::appLogic()
 {
 	// Call at the beginning of frame, before drawing lines:
 	initLineData();
-	// Transform view basis
-	// V = createToLocalMatrix(view_x, view_y, view_z,eye);
-	// V_to_local = createToLocalMatrix(view_x, view_y, view_z,eye);
-	// V_to_local_inv = glm::inverse(V_to_local);
-	// view_x = V_to_local_inv * V_rotation * V_to_local * view_x;
-	// view_y = V_to_local_inv * V_rotation * V_to_local * view_y;
-	// view_z = V_to_local_inv * V_rotation * V_to_local * view_z;
-	// eye = V_to_local_inv * V_translate * V_to_local * eye;
-
 	// Transform world gnomons
 	vec4 X_VECTOR_pv = V * X_VECTOR;
 	vec4 Y_VECTOR_pv = V * Y_VECTOR;
@@ -261,9 +252,9 @@ void A2::appLogic()
 	M_to_local_inv = glm::inverse(M_to_local);
 
 	// Transform model gnomons
-	local_x = M_to_local_inv * M_rotation * M_to_local * local_x;
-  local_y = M_to_local_inv * M_rotation * M_to_local * local_y;
-  local_z = M_to_local_inv * M_rotation * M_to_local * local_z;
+	local_x = glm::normalize( M_to_local_inv * M_rotation * M_scale * M_to_local * local_x);
+  local_y = glm::normalize( M_to_local_inv * M_rotation * M_scale * M_to_local * local_y);
+  local_z = glm::normalize( M_to_local_inv * M_rotation * M_scale * M_to_local * local_z);
 	local_o = M_to_local_inv * M_translate * M_to_local * local_o;
 
 	// Transform local gnomons to screen space
@@ -872,6 +863,7 @@ void A2::reset() {
 	m_near = 14.0f;
 	m_far = 18.0f;
 	m_fov = PI / 6.0f;
+	m_mode = M_R;
 	M = mat4(1.0f);
 	octahedronVertices[0] = vec4(1.0f, 0.0f, 0.0f, 1.0f);
 	octahedronVertices[1] = vec4(-1.0f, 0.0f, 0.0f, 1.0f);
