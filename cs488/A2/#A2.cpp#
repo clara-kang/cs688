@@ -247,15 +247,15 @@ void A2::appLogic()
 	}
 
 	// Calculate model transformation matrix, and the matrix to change to model coordinate
-	M = M_RT * M_scale;
+	M = M_translate * M_rotation * M_scale;
 	M_to_local = createToLocalMatrix(local_x, local_y, local_z, local_o);
 	M_to_local_inv = glm::inverse(M_to_local);
 
 	// Transform model gnomons
-	local_x = glm::normalize( M_RT * M_scale * X_VECTOR);
-  	local_y = glm::normalize( M_RT * M_scale * Y_VECTOR);
-  	local_z = glm::normalize( M_RT * M_scale * Z_VECTOR);
-	local_o = M_RT * ORIGIN;
+	local_x = glm::normalize( M_to_local_inv * M_rotation * M_scale * M_to_local * local_x);
+  local_y = glm::normalize( M_to_local_inv * M_rotation * M_scale * M_to_local * local_y);
+  local_z = glm::normalize( M_to_local_inv * M_rotation * M_scale * M_to_local * local_z);
+	local_o = M_to_local_inv * M_translate * M_to_local * local_o;
 
 	// Transform local gnomons to screen space
 	vec4 local_o_trans = V * local_o;
@@ -287,10 +287,9 @@ void A2::appLogic()
 
 	// Transform octahedron vertices
 	vec4 vertices_view[6]; // vertices in view space
-	vec4 vertices[6];
 	for ( int i = 0; i < 6; i++ ) {
-		vertices[i] = M_RT  * M_scale * octahedronVertices[i];
-		vertices_view[i] = V  * vertices[i];
+		octahedronVertices[i] = M_to_local_inv * M  * M_to_local * octahedronVertices[i];
+		vertices_view[i] = V  * octahedronVertices[i];
 	}
 	// Draw octahedron
 	setLineColour(vec3(1.0f, 1.0f, 1.0f));
@@ -340,7 +339,7 @@ void A2::guiLogic()
 	float opacity(0.5f);
 
 	ImGui::Begin("Properties", &showDebugWindow, ImVec2(100,100), opacity,
-			windowFlags);
+			windowFlagfs);
 
 	if( ImGui::Button( "Quit Application (Q)" ) ) {
 		glfwSetWindowShouldClose(m_window, GL_TRUE);
@@ -461,12 +460,12 @@ bool A2::mouseMoveEvent (
 						break;
 					}
 				}
-				//M_rotation = D_M_rotation;
-				M_RT = D_M_rotation * M_RT;
+				M_rotation = D_M_rotation;
 				break;
 			}
 			case M_S: {
 				float d_scale = ImGui::GetIO().MouseDelta.x * INPUT_SCALE_FACTOR ;
+				M_scale = mat4(1.0f);
 				switch ( mouse_button ) {
 					case 0: {// left mouse button, scale model about x axis
 						float d_x = std::max(M_scale[0][0] + d_scale, MIN_SCALE);
@@ -488,7 +487,7 @@ bool A2::mouseMoveEvent (
 			}
 			case M_T: {
 				float d_translate = ImGui::GetIO().MouseDelta.x * INPUT_SCALE_FACTOR ;
-				mat4 M_translate = mat4(1.0f);
+				M_translate = mat4(1.0f);
 				switch ( mouse_button ) {
 					case 0: {// left mouse button, translate model about x axis
 						M_translate[3][0] = d_translate;
@@ -503,7 +502,6 @@ bool A2::mouseMoveEvent (
 						break;
 					}
 				}
-				M_RT = M_translate * M_RT;
 				break;
 			}
 			case V_R: {
@@ -562,12 +560,10 @@ bool A2::mouseMoveEvent (
 					}
 					case 1: {// right mouse button, change far plane
 						m_far = m_far + ImGui::GetIO().MouseDelta.x * INPUT_SCALE_FACTOR * 5.0f;
-						m_far = std::max(m_near, m_far);
 						break;
 					}
 					case 2: {// middle mouse button, change near plane
 						m_near = m_near + ImGui::GetIO().MouseDelta.x * INPUT_SCALE_FACTOR * 5.0f;
-						m_near = std::min(m_near, m_far);
 						break;
 					}
 				}
@@ -613,6 +609,7 @@ bool A2::mouseButtonInputEvent (
 	if ( actions == GLFW_RELEASE ) {
 		m_mouseButtonActive = false;
 		M_rotation = mat4(1.0f);
+		M_scale = mat4(1.0f);
 		M_translate = mat4(1.0f);
 		V_rotation = mat4(1.0f);
 		V_translate = mat4(1.0f);
@@ -863,8 +860,8 @@ void A2::reset() {
 	M_scale = mat4(1.0f);
 	m_view_dir = vec3(0.0f, 0.0f, -1.0f);
 	m_eye_pos = vec3(0.0f, 0.0f, 15.0f);
-	m_near = 5.0f;
-	m_far = 25.0f;
+	m_near = 14.0f;
+	m_far = 18.0f;
 	m_fov = PI / 6.0f;
 	m_mode = M_R;
 	M = mat4(1.0f);
