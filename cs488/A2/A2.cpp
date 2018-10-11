@@ -248,8 +248,6 @@ void A2::appLogic()
 
 	// Calculate model transformation matrix, and the matrix to change to model coordinate
 	M = M_RT * M_scale;
-	M_to_local = createToLocalMatrix(local_x, local_y, local_z, local_o);
-	M_to_local_inv = glm::inverse(M_to_local);
 
 	// Transform model gnomons
 	local_x = glm::normalize( M_RT * M_scale * X_VECTOR);
@@ -345,7 +343,7 @@ void A2::guiLogic()
 	if( ImGui::Button( "Quit Application (Q)" ) ) {
 		glfwSetWindowShouldClose(m_window, GL_TRUE);
 	}
-	if( ImGui::Button( "Reset (R)" ) ) {
+	if( ImGui::Button( "Reset (A)" ) ) {
 		reset();
 	}
 
@@ -528,23 +526,23 @@ bool A2::mouseMoveEvent (
 					}
 				}
 				V_rotation = D_V_rotation;
-				V = V_rotation * V;
+				V = glm::transpose(V_rotation) * V;
 				break;
 			}
 			case V_T: {
-				float d_translate = ImGui::GetIO().MouseDelta.x * INPUT_SCALE_FACTOR ;
+				float d_translate = ImGui::GetIO().MouseDelta.x * INPUT_SCALE_FACTOR * 2.0f ;
 				V_translate = mat4(1.0f);
 				switch ( mouse_button ) {
 					case 0: {// left mouse button, translate view about x axis
-						V_translate[3][0] = d_translate;
+						V_translate[3][0] = -d_translate;
 						break;
 					}
 					case 1: {// right mouse button, translate view about z axis
-						V_translate[3][2] = d_translate;
+						V_translate[3][2] = -d_translate;
 						break;
 					}
 					case 2: {// middle mouse button, translate view about y axis
-						V_translate[3][1] = d_translate;
+						V_translate[3][1] = -d_translate;
 						break;
 					}
 				}
@@ -576,8 +574,12 @@ bool A2::mouseMoveEvent (
 			}
 			case VP: {
 				vp_br = vec2(ImGui::GetIO().MousePos.x, ImGui::GetIO().MousePos.y);
+				vp_br[0] = std::min(window_width, vp_br[0]);
+				vp_br[1] = std::min(window_height, vp_br[1]);
 				vp_br[0] = vp_br[0] * 2.0f / window_width - 1.0f;
+				vp_br[0] = std::max(vp_tl[0], vp_br[0]);
 				vp_br[1] = 1.0f - vp_br[1] * 2.0f / window_height;
+				vp_br[1] = std::min(vp_tl[1], vp_br[1]);
 				W = createWinMatrix(vp_tl, vp_br);
 			}
 		}
@@ -617,10 +619,6 @@ bool A2::mouseButtonInputEvent (
 		V_rotation = mat4(1.0f);
 		V_translate = mat4(1.0f);
 		if (changing_vp) {
-			vp_br = vec2(ImGui::GetIO().MousePos.x, ImGui::GetIO().MousePos.y);
-			vp_br[0] = vp_br[0] * 2.0f / window_width - 1.0f;
-			vp_br[1] = 1.0f - vp_br[1] * 2.0f / window_height;
-			W = createWinMatrix(vp_tl, vp_br);
 			changing_vp = false;
 		}
 	}
@@ -687,6 +685,18 @@ bool A2::keyInputEvent (
 			break;
 		case GLFW_KEY_T:
 			m_mode = M_T;
+			break;
+		case GLFW_KEY_O:
+			m_mode = V_R;
+			break;
+		case GLFW_KEY_E:
+			m_mode = V_T;
+			break;
+		case GLFW_KEY_P:
+			m_mode = PE;
+			break;
+		case GLFW_KEY_V:
+			m_mode = VP;
 			break;
 	}
 
@@ -861,12 +871,14 @@ void A2::reset() {
 	M_rotation = mat4(1.0f);
 	M_translate = mat4(1.0f);
 	M_scale = mat4(1.0f);
+	M_RT = mat4(1.0f);
 	m_view_dir = vec3(0.0f, 0.0f, -1.0f);
 	m_eye_pos = vec3(0.0f, 0.0f, 15.0f);
 	m_near = 5.0f;
 	m_far = 25.0f;
 	m_fov = PI / 6.0f;
 	m_mode = M_R;
+	W = mat4(1.0f);
 	M = mat4(1.0f);
 	octahedronVertices[0] = vec4(1.0f, 0.0f, 0.0f, 1.0f);
 	octahedronVertices[1] = vec4(-1.0f, 0.0f, 0.0f, 1.0f);

@@ -1,0 +1,14 @@
+compilation: 
+premake4 gmake; make; ./A2
+worked on computer gl13.student.cs
+
+manual:
+-cannot scale to less than 0.1f
+-near plane cannot be greater than far plane
+-far plane cannot be less than near plane
+-eye is at (0, 0, -15)
+-to draw viewport, the mouse is only allowed to drag in down/right directions
+-viewport is limited by the size of the window
+-model coordinate color: x=red, y=green, z=blue
+-world coordinate color: x=yellow, y=magenta, z=cyan
+
