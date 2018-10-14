@@ -20,6 +20,7 @@ using namespace glm;
 static bool show_gui = true;
 
 const size_t CIRCLE_PTS = 48;
+const float ROTATION_SCALE_FACTOR = 0.1f;
 
 //----------------------------------------------------------------------------------------
 // Constructor
@@ -400,19 +401,23 @@ void A3::draw() {
 }
 
 void A3::renderSceneGraphRec(const SceneNode & root, const glm::mat4 & modelMatrix) {
-	// updateShaderUniforms(m_shader, *root, m_view, (*root).trans);
-	// if (root.children.size() == 0 && root->m_nodeType == NodeType::GeometryNode) {
-	// 	const GeometryNode * geometryNode = static_cast<const GeometryNode *>(root);
-	// 	// Get the BatchInfo corresponding to the GeometryNode's unique MeshId.
-	// 	BatchInfo batchInfo = m_batchInfoMap[geometryNode->meshId];
-	// 	//-- Now render the mesh:
-	// 	m_shader.enable();
-	// 	glDrawArrays(GL_TRIANGLES, batchInfo.startIndex, batchInfo.numIndices);
-	// 	m_shader.disable();
-	// }
-	//
-	// glBindVertexArray(0);
-	// CHECK_GL_ERRORS;
+
+	if (root.children.size() == 0 && root.m_nodeType == NodeType::GeometryNode) {
+		const GeometryNode * geometryNode = static_cast<const GeometryNode *>(&root);
+		updateShaderUniforms(m_shader, *geometryNode, m_view, geometryNode->trans * modelMatrix);
+		// Get the BatchInfo corresponding to the GeometryNode's unique MeshId.
+		BatchInfo batchInfo = m_batchInfoMap[geometryNode->meshId];
+		//-- Now render the mesh:
+		m_shader.enable();
+		glDrawArrays(GL_TRIANGLES, batchInfo.startIndex, batchInfo.numIndices);
+		m_shader.disable();
+
+	} else {
+		for (const SceneNode * node : root.children) {
+			const SceneNode * nextRoot = static_cast<const SceneNode *>(node);
+			renderSceneGraphRec(*nextRoot, root.trans * modelMatrix);
+		}
+	}
 }
 
 //----------------------------------------------------------------------------------------
@@ -420,38 +425,8 @@ void A3::renderSceneGraph(const SceneNode & root) {
 
 	// Bind the VAO once here, and reuse for all GeometryNode rendering below.
 	glBindVertexArray(m_vao_meshData);
-
-	// This is emphatically *not* how you should be drawing the scene graph in
-	// your final implementation.  This is a non-hierarchical demonstration
-	// in which we assume that there is a list of GeometryNodes living directly
-	// underneath the root node, and that we can draw them in a loop.  It's
-	// just enough to demonstrate how to get geometry and materials out of
-	// a GeometryNode and onto the screen.
-
-	// You'll want to turn this into recursive code that walks over the tree.
-	// You can do that by putting a method in SceneNode, overridden in its
-	// subclasses, that renders the subtree rooted at every node.  Or you
-	// could put a set of mutually recursive functions in this class, which
-	// walk down the tree from nodes of different types.
-
-	for (const SceneNode * node : root.children) {
-
-		if (node->m_nodeType != NodeType::GeometryNode)
-			continue;
-
-		const GeometryNode * geometryNode = static_cast<const GeometryNode *>(node);
-
-		updateShaderUniforms(m_shader, *geometryNode, m_view, (*geometryNode).trans);
-
-
-		// Get the BatchInfo corresponding to the GeometryNode's unique MeshId.
-		BatchInfo batchInfo = m_batchInfoMap[geometryNode->meshId];
-
-		//-- Now render the mesh:
-		m_shader.enable();
-		glDrawArrays(GL_TRIANGLES, batchInfo.startIndex, batchInfo.numIndices);
-		m_shader.disable();
-	}
+	//const SceneNode * nextRoot = static_cast<const SceneNode *>(root);
+	renderSceneGraphRec(root, mat4(1.0f));
 
 	glBindVertexArray(0);
 	CHECK_GL_ERRORS;
@@ -511,26 +486,27 @@ bool A3::mouseMoveEvent (
 ) {
 	bool eventHandled(false);
 	float x,y;
-	// Fill in with event handling code...
 	if (mouse_down && m_mode == PO) {
 		if (aspect >= 1.0f) {
-			x = (xPos - m_framebufferWidth/2.0f) * 2.0f * aspect/m_framebufferWidth;
-			y = (-yPos + m_framebufferHeight/2.0f) * 2.0f/m_framebufferHeight;
+			x = (xPos - m_framebufferWidth/2.0f) * 4.0f * aspect/m_framebufferWidth;
+			y = (-yPos + m_framebufferHeight/2.0f) * 4.0f/m_framebufferHeight;
 		} else {
-			x = ((xPos - m_framebufferWidth/2.0f) * 2.0f)/m_framebufferWidth;
-			y = (-yPos + m_framebufferHeight/2.0f) * 2.0f / aspect/m_framebufferHeight;
+			x = ((xPos - m_framebufferWidth/2.0f) * 4.0f)/m_framebufferWidth;
+			y = (-yPos + m_framebufferHeight/2.0f) * 4.0f / aspect/m_framebufferHeight;
 		}
-		if ( x*x + y*y <= 1 ) {
+
+		if ( x*x + y*y <= 1.0f ) {
 			if ( !trackball_rotate ){
 				trackball_rotate = true;
 				trackball_u = glm::normalize(vec3(x, y, sqrt(1-x*x-y*y)));
 			} else {
 				vec3 trackball_w = glm::normalize(vec3(x, y, sqrt(1-x*x-y*y)));
-				vec3 rotation_axis = glm::cross(trackball_u, trackball_w);
-				mat4 M = glm::rotate((*m_rootNode).trans, acos(glm::dot(trackball_w, trackball_u)), rotation_axis);
+				vec3 rotation_axis = glm::normalize(glm::cross(trackball_u, trackball_w));
+				mat4 M = glm::rotate((*m_rootNode).trans,
+					ROTATION_SCALE_FACTOR * acos(glm::dot(trackball_w, trackball_u)), rotation_axis);
 				(*m_rootNode).trans = M;
 
-				//cout << glm::to_string((*m_rootNode).trans) << endl;
+				cout << "axis: " <<  glm::to_string(rotation_axis) << endl;
 			}
 		}
 	}
@@ -553,12 +529,12 @@ bool A3::mouseButtonInputEvent (
 	if ( actions == GLFW_PRESS ) {
 		if (!ImGui::IsMouseHoveringAnyWindow()) {
 			mouse_down = true;
+
 		}
 	}
 
 	if ( actions == GLFW_RELEASE ) {
 		if (!ImGui::IsMouseHoveringAnyWindow()) {
-			//released_pos  = vec2(ImGui::GetIO().MousePos.x, ImGui::GetIO().MousePos.y);
 			mouse_down = false;
 		}
 	}
