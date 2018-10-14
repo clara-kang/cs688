@@ -50,6 +50,7 @@ protected:
 	void initPerspectiveMatrix();
 	void uploadCommonSceneUniforms();
 	void renderSceneGraph(const SceneNode &node);
+	void renderSceneGraphRec(const SceneNode & root, const glm::mat4 & modelMatrix);
 	void renderArcCircle();
 
 	glm::mat4 m_perpsective;
@@ -79,4 +80,16 @@ protected:
 	std::string m_luaSceneFile;
 
 	std::shared_ptr<SceneNode> m_rootNode;
+
+	enum MODE { PO, J};
+	int m_mode;
+	glm::vec2 screen_center;
+	glm::vec2 prev_mouse_pos;
+	glm::vec3 trackball_o;
+	glm::vec3 trackball_u;
+	// glm::vec2 released_pos;
+	bool mouse_down;
+	bool trackball_rotate;
+	float aspect;
+
 };

@@ -14,7 +14,7 @@ using namespace std;
 #include <glm/gtc/type_ptr.hpp>
 #include <glm/gtx/io.hpp>
 #include <glm/gtc/matrix_transform.hpp>
-
+#include <glm/gtx/string_cast.hpp>
 using namespace glm;
 
 static bool show_gui = true;
@@ -31,7 +31,11 @@ A3::A3(const std::string & luaSceneFile)
 	  m_vbo_vertexPositions(0),
 	  m_vbo_vertexNormals(0),
 	  m_vao_arcCircle(0),
-	  m_vbo_arcCircle(0)
+	  m_vbo_arcCircle(0),
+		m_mode(PO),
+		trackball_o(vec3(0.0f)),
+		trackball_rotate(false),
+		aspect(1024.0f/768.0f)
 {
 
 }
@@ -245,7 +249,6 @@ void A3::mapVboDataToVertexShaderInputLocations()
 //----------------------------------------------------------------------------------------
 void A3::initPerspectiveMatrix()
 {
-	float aspect = ((float)m_windowWidth) / m_windowHeight;
 	m_perpsective = glm::perspective(degreesToRadians(60.0f), aspect, 0.1f, 100.0f);
 }
 
@@ -335,9 +338,8 @@ void A3::guiLogic()
 		if( ImGui::Button( "Quit Application" ) ) {
 			glfwSetWindowShouldClose(m_window, GL_TRUE);
 		}
-
+		ImGui::RadioButton( "Position/Orientation (P)", &m_mode, PO );
 		ImGui::Text( "Framerate: %.1f FPS", ImGui::GetIO().Framerate );
-
 	ImGui::End();
 }
 
@@ -346,14 +348,15 @@ void A3::guiLogic()
 static void updateShaderUniforms(
 		const ShaderProgram & shader,
 		const GeometryNode & node,
-		const glm::mat4 & viewMatrix
+		const glm::mat4 & viewMatrix,
+		const glm::mat4 & modelMatrix
 ) {
 
 	shader.enable();
 	{
 		//-- Set ModelView matrix:
 		GLint location = shader.getUniformLocation("ModelView");
-		mat4 modelView = viewMatrix * node.trans;
+		mat4 modelView = viewMatrix * modelMatrix;
 		glUniformMatrix4fv(location, 1, GL_FALSE, value_ptr(modelView));
 		CHECK_GL_ERRORS;
 
@@ -396,6 +399,22 @@ void A3::draw() {
 	renderArcCircle();
 }
 
+void A3::renderSceneGraphRec(const SceneNode & root, const glm::mat4 & modelMatrix) {
+	// updateShaderUniforms(m_shader, *root, m_view, (*root).trans);
+	// if (root.children.size() == 0 && root->m_nodeType == NodeType::GeometryNode) {
+	// 	const GeometryNode * geometryNode = static_cast<const GeometryNode *>(root);
+	// 	// Get the BatchInfo corresponding to the GeometryNode's unique MeshId.
+	// 	BatchInfo batchInfo = m_batchInfoMap[geometryNode->meshId];
+	// 	//-- Now render the mesh:
+	// 	m_shader.enable();
+	// 	glDrawArrays(GL_TRIANGLES, batchInfo.startIndex, batchInfo.numIndices);
+	// 	m_shader.disable();
+	// }
+	//
+	// glBindVertexArray(0);
+	// CHECK_GL_ERRORS;
+}
+
 //----------------------------------------------------------------------------------------
 void A3::renderSceneGraph(const SceneNode & root) {
 
@@ -422,7 +441,7 @@ void A3::renderSceneGraph(const SceneNode & root) {
 
 		const GeometryNode * geometryNode = static_cast<const GeometryNode *>(node);
 
-		updateShaderUniforms(m_shader, *geometryNode, m_view);
+		updateShaderUniforms(m_shader, *geometryNode, m_view, (*geometryNode).trans);
 
 
 		// Get the BatchInfo corresponding to the GeometryNode's unique MeshId.
@@ -445,7 +464,6 @@ void A3::renderArcCircle() {
 
 	m_shader_arcCircle.enable();
 		GLint m_location = m_shader_arcCircle.getUniformLocation( "M" );
-		float aspect = float(m_framebufferWidth)/float(m_framebufferHeight);
 		glm::mat4 M;
 		if( aspect > 1.0 ) {
 			M = glm::scale( glm::mat4(), glm::vec3( 0.5/aspect, 0.5, 1.0 ) );
@@ -492,8 +510,30 @@ bool A3::mouseMoveEvent (
 		double yPos
 ) {
 	bool eventHandled(false);
-
+	float x,y;
 	// Fill in with event handling code...
+	if (mouse_down && m_mode == PO) {
+		if (aspect >= 1.0f) {
+			x = (xPos - m_framebufferWidth/2.0f) * 2.0f * aspect/m_framebufferWidth;
+			y = (-yPos + m_framebufferHeight/2.0f) * 2.0f/m_framebufferHeight;
+		} else {
+			x = ((xPos - m_framebufferWidth/2.0f) * 2.0f)/m_framebufferWidth;
+			y = (-yPos + m_framebufferHeight/2.0f) * 2.0f / aspect/m_framebufferHeight;
+		}
+		if ( x*x + y*y <= 1 ) {
+			if ( !trackball_rotate ){
+				trackball_rotate = true;
+				trackball_u = glm::normalize(vec3(x, y, sqrt(1-x*x-y*y)));
+			} else {
+				vec3 trackball_w = glm::normalize(vec3(x, y, sqrt(1-x*x-y*y)));
+				vec3 rotation_axis = glm::cross(trackball_u, trackball_w);
+				mat4 M = glm::rotate((*m_rootNode).trans, acos(glm::dot(trackball_w, trackball_u)), rotation_axis);
+				(*m_rootNode).trans = M;
+
+				//cout << glm::to_string((*m_rootNode).trans) << endl;
+			}
+		}
+	}
 
 	return eventHandled;
 }
@@ -510,6 +550,18 @@ bool A3::mouseButtonInputEvent (
 	bool eventHandled(false);
 
 	// Fill in with event handling code...
+	if ( actions == GLFW_PRESS ) {
+		if (!ImGui::IsMouseHoveringAnyWindow()) {
+			mouse_down = true;
+		}
+	}
+
+	if ( actions == GLFW_RELEASE ) {
+		if (!ImGui::IsMouseHoveringAnyWindow()) {
+			//released_pos  = vec2(ImGui::GetIO().MousePos.x, ImGui::GetIO().MousePos.y);
+			mouse_down = false;
+		}
+	}
 
 	return eventHandled;
 }
@@ -537,6 +589,7 @@ bool A3::windowResizeEvent (
 		int width,
 		int height
 ) {
+	aspect = ((float)width) / height;
 	bool eventHandled(false);
 	initPerspectiveMatrix();
 	return eventHandled;
@@ -557,6 +610,9 @@ bool A3::keyInputEvent (
 		if( key == GLFW_KEY_M ) {
 			show_gui = !show_gui;
 			eventHandled = true;
+		}
+		if (key == GLFW_KEY_Q) {
+			glfwSetWindowShouldClose(m_window, GL_TRUE);
 		}
 	}
 	// Fill in with event handling code...
