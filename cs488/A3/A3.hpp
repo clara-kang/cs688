@@ -63,8 +63,10 @@ protected:
 	GLuint m_vbo_vertexPositions;
 	GLuint m_vbo_vertexNormals;
 	GLint m_positionAttribLocation;
+	GLint m_positionAttribLocation_select;
 	GLint m_normalAttribLocation;
 	ShaderProgram m_shader;
+	ShaderProgram m_shader_select;
 
 	//-- GL resources for trackball circle geometry:
 	GLuint m_vbo_arcCircle;
@@ -91,5 +93,8 @@ protected:
 	bool mouse_down;
 	bool trackball_rotate;
 	float aspect;
+	int m_button;
+	bool m_select_mode;
 
+	void createColorMap ();
 };

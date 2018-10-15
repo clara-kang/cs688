@@ -21,7 +21,9 @@ static bool show_gui = true;
 
 const size_t CIRCLE_PTS = 48;
 const float ROTATION_SCALE_FACTOR = 0.1f;
+const float INPUT_SCALE_FACTOR = 0.001f;
 
+static glm::vec3 *m_color_map;
 //----------------------------------------------------------------------------------------
 // Constructor
 A3::A3(const std::string & luaSceneFile)
@@ -36,7 +38,8 @@ A3::A3(const std::string & luaSceneFile)
 		m_mode(PO),
 		trackball_o(vec3(0.0f)),
 		trackball_rotate(false),
-		aspect(1024.0f/768.0f)
+		aspect(1024.0f/768.0f),
+		m_select_mode(true)
 {
 
 }
@@ -95,6 +98,8 @@ void A3::init()
 	// all vertex data resources.  This is fine since we already copied this data to
 	// VBOs on the GPU.  We have no use for storing vertex data on the CPU side beyond
 	// this point.
+	m_color_map = new vec3[(*m_rootNode).totalSceneNodes()];
+	createColorMap();
 }
 
 //----------------------------------------------------------------------------------------
@@ -121,6 +126,11 @@ void A3::createShaderProgram()
 	m_shader.attachFragmentShader( getAssetFilePath("FragmentShader.fs").c_str() );
 	m_shader.link();
 
+	m_shader_select.generateProgramObject();
+	m_shader_select.attachVertexShader( getAssetFilePath("simple_VertexShader.vs").c_str() );
+	m_shader_select.attachFragmentShader( getAssetFilePath("simple_FragmentShader.fs").c_str() );
+	m_shader_select.link();
+
 	m_shader_arcCircle.generateProgramObject();
 	m_shader_arcCircle.attachVertexShader( getAssetFilePath("arc_VertexShader.vs").c_str() );
 	m_shader_arcCircle.attachFragmentShader( getAssetFilePath("arc_FragmentShader.fs").c_str() );
@@ -141,6 +151,16 @@ void A3::enableVertexShaderInputSlots()
 		// Enable the vertex shader attribute location for "normal" when rendering.
 		m_normalAttribLocation = m_shader.getAttribLocation("normal");
 		glEnableVertexAttribArray(m_normalAttribLocation);
+
+		CHECK_GL_ERRORS;
+	}
+
+	{
+		glBindVertexArray(m_vao_meshData);
+
+		// Enable the vertex shader attribute location for "position" when rendering.
+		m_positionAttribLocation_select = m_shader_select.getAttribLocation("position");
+		glEnableVertexAttribArray(m_positionAttribLocation_select);
 
 		CHECK_GL_ERRORS;
 	}
@@ -220,6 +240,7 @@ void A3::mapVboDataToVertexShaderInputLocations()
 	// "position" vertex attribute location for any bound vertex shader program.
 	glBindBuffer(GL_ARRAY_BUFFER, m_vbo_vertexPositions);
 	glVertexAttribPointer(m_positionAttribLocation, 3, GL_FLOAT, GL_FALSE, 0, nullptr);
+	glVertexAttribPointer(m_positionAttribLocation_select, 3, GL_FLOAT, GL_FALSE, 0, nullptr);
 
 	// Tell GL how to map data from the vertex buffer "m_vbo_vertexNormals" into the
 	// "normal" vertex attribute location for any bound vertex shader program.
@@ -269,32 +290,41 @@ void A3::initLightSources() {
 
 //----------------------------------------------------------------------------------------
 void A3::uploadCommonSceneUniforms() {
-	m_shader.enable();
-	{
+	if (!m_select_mode) {
+		m_shader.enable();
+		{
+			//-- Set Perpsective matrix uniform for the scene:
+			GLint location = m_shader.getUniformLocation("Perspective");
+			glUniformMatrix4fv(location, 1, GL_FALSE, value_ptr(m_perpsective));
+			CHECK_GL_ERRORS;
+
+
+			//-- Set LightSource uniform for the scene:
+			{
+				location = m_shader.getUniformLocation("light.position");
+				glUniform3fv(location, 1, value_ptr(m_light.position));
+				location = m_shader.getUniformLocation("light.rgbIntensity");
+				glUniform3fv(location, 1, value_ptr(m_light.rgbIntensity));
+				CHECK_GL_ERRORS;
+			}
+
+			//-- Set background light ambient intensity
+			{
+				location = m_shader.getUniformLocation("ambientIntensity");
+				vec3 ambientIntensity(0.05f);
+				glUniform3fv(location, 1, value_ptr(ambientIntensity));
+				CHECK_GL_ERRORS;
+			}
+		}
+		m_shader.disable();
+	} else {
+		m_shader_select.enable();
 		//-- Set Perpsective matrix uniform for the scene:
-		GLint location = m_shader.getUniformLocation("Perspective");
+		GLint location = m_shader_select.getUniformLocation("Perspective");
 		glUniformMatrix4fv(location, 1, GL_FALSE, value_ptr(m_perpsective));
 		CHECK_GL_ERRORS;
-
-
-		//-- Set LightSource uniform for the scene:
-		{
-			location = m_shader.getUniformLocation("light.position");
-			glUniform3fv(location, 1, value_ptr(m_light.position));
-			location = m_shader.getUniformLocation("light.rgbIntensity");
-			glUniform3fv(location, 1, value_ptr(m_light.rgbIntensity));
-			CHECK_GL_ERRORS;
-		}
-
-		//-- Set background light ambient intensity
-		{
-			location = m_shader.getUniformLocation("ambientIntensity");
-			vec3 ambientIntensity(0.05f);
-			glUniform3fv(location, 1, value_ptr(ambientIntensity));
-			CHECK_GL_ERRORS;
-		}
+		m_shader_select.disable();
 	}
-	m_shader.disable();
 }
 
 //----------------------------------------------------------------------------------------
@@ -339,7 +369,12 @@ void A3::guiLogic()
 		if( ImGui::Button( "Quit Application" ) ) {
 			glfwSetWindowShouldClose(m_window, GL_TRUE);
 		}
-		ImGui::RadioButton( "Position/Orientation (P)", &m_mode, PO );
+		if (ImGui::RadioButton( "Position/Orientation (P)", &m_mode, PO )) {
+			m_select_mode = false;
+		}
+		if (ImGui::RadioButton( "Joint (J)", &m_mode, J )) {
+			m_select_mode = true;
+		}
 		ImGui::Text( "Framerate: %.1f FPS", ImGui::GetIO().Framerate );
 	ImGui::End();
 }
@@ -350,7 +385,8 @@ static void updateShaderUniforms(
 		const ShaderProgram & shader,
 		const GeometryNode & node,
 		const glm::mat4 & viewMatrix,
-		const glm::mat4 & modelMatrix
+		const glm::mat4 & modelMatrix,
+		bool select_mode
 ) {
 
 	shader.enable();
@@ -360,27 +396,32 @@ static void updateShaderUniforms(
 		mat4 modelView = viewMatrix * modelMatrix;
 		glUniformMatrix4fv(location, 1, GL_FALSE, value_ptr(modelView));
 		CHECK_GL_ERRORS;
+		if (!select_mode) {
+			//-- Set NormMatrix:
+			location = shader.getUniformLocation("NormalMatrix");
+			mat3 normalMatrix = glm::transpose(glm::inverse(mat3(modelView)));
+			glUniformMatrix3fv(location, 1, GL_FALSE, value_ptr(normalMatrix));
+			CHECK_GL_ERRORS;
 
-		//-- Set NormMatrix:
-		location = shader.getUniformLocation("NormalMatrix");
-		mat3 normalMatrix = glm::transpose(glm::inverse(mat3(modelView)));
-		glUniformMatrix3fv(location, 1, GL_FALSE, value_ptr(normalMatrix));
-		CHECK_GL_ERRORS;
 
-
-		//-- Set Material values:
-		location = shader.getUniformLocation("material.kd");
-		vec3 kd = node.material.kd;
-		glUniform3fv(location, 1, value_ptr(kd));
-		CHECK_GL_ERRORS;
-		location = shader.getUniformLocation("material.ks");
-		vec3 ks = node.material.ks;
-		glUniform3fv(location, 1, value_ptr(ks));
-		CHECK_GL_ERRORS;
-		location = shader.getUniformLocation("material.shininess");
-		glUniform1f(location, node.material.shininess);
-		CHECK_GL_ERRORS;
-
+			//-- Set Material values:
+			location = shader.getUniformLocation("material.kd");
+			vec3 kd = node.material.kd;
+			glUniform3fv(location, 1, value_ptr(kd));
+			CHECK_GL_ERRORS;
+			location = shader.getUniformLocation("material.ks");
+			vec3 ks = node.material.ks;
+			glUniform3fv(location, 1, value_ptr(ks));
+			CHECK_GL_ERRORS;
+			location = shader.getUniformLocation("material.shininess");
+			glUniform1f(location, node.material.shininess);
+			CHECK_GL_ERRORS;
+		} else {
+			location = shader.getUniformLocation("obj_color");
+			vec3 color = m_color_map[node.m_nodeId];
+			glUniform3fv(location, 1, value_ptr(color));
+			cout << glm::to_string(color) << endl;
+		}
 	}
 	shader.disable();
 
@@ -402,20 +443,28 @@ void A3::draw() {
 
 void A3::renderSceneGraphRec(const SceneNode & root, const glm::mat4 & modelMatrix) {
 
-	if (root.children.size() == 0 && root.m_nodeType == NodeType::GeometryNode) {
+	if (root.m_nodeType == NodeType::GeometryNode) {
+		// ShaderProgram shader_to_use;
+		// if (!m_select_mode) {
+		// 	shader_to_use = m_shader;
+		// } else {
+		// 	shader_to_use = m_shader_select;
+		// }
 		const GeometryNode * geometryNode = static_cast<const GeometryNode *>(&root);
-		updateShaderUniforms(m_shader, *geometryNode, m_view, geometryNode->trans * modelMatrix);
+		updateShaderUniforms(m_shader_select, *geometryNode, m_view, modelMatrix*root.trans, m_select_mode);
+		// cout << "trans: " << glm::to_string(root.trans) << endl;
 		// Get the BatchInfo corresponding to the GeometryNode's unique MeshId.
 		BatchInfo batchInfo = m_batchInfoMap[geometryNode->meshId];
 		//-- Now render the mesh:
-		m_shader.enable();
+		m_shader_select.enable();
 		glDrawArrays(GL_TRIANGLES, batchInfo.startIndex, batchInfo.numIndices);
-		m_shader.disable();
+		m_shader_select.disable();
 
-	} else {
+	}
+	if (root.children.size() > 0 ) {
 		for (const SceneNode * node : root.children) {
 			const SceneNode * nextRoot = static_cast<const SceneNode *>(node);
-			renderSceneGraphRec(*nextRoot, root.trans * modelMatrix);
+			renderSceneGraphRec(*nextRoot, modelMatrix * root.trans);
 		}
 	}
 }
@@ -486,7 +535,13 @@ bool A3::mouseMoveEvent (
 ) {
 	bool eventHandled(false);
 	float x,y;
-	if (mouse_down && m_mode == PO) {
+	if (m_button == GLFW_MOUSE_BUTTON_LEFT && mouse_down && m_mode == PO) {
+		float dx = ImGui::GetIO().MouseDelta.x * INPUT_SCALE_FACTOR;
+		float dy = -ImGui::GetIO().MouseDelta.y * INPUT_SCALE_FACTOR;
+		mat4 M = glm::translate((*m_rootNode).trans, vec3(glm::inverse((*m_rootNode).trans) * vec4(dx, dy, 0.0f, 0.0f)));
+		(*m_rootNode).trans = M;
+	}
+	if (m_button == GLFW_MOUSE_BUTTON_RIGHT && mouse_down && m_mode == PO) {
 		if (aspect >= 1.0f) {
 			x = (xPos - m_framebufferWidth/2.0f) * 4.0f * aspect/m_framebufferWidth;
 			y = (-yPos + m_framebufferHeight/2.0f) * 4.0f/m_framebufferHeight;
@@ -502,13 +557,20 @@ bool A3::mouseMoveEvent (
 			} else {
 				vec3 trackball_w = glm::normalize(vec3(x, y, sqrt(1-x*x-y*y)));
 				vec3 rotation_axis = glm::normalize(glm::cross(trackball_u, trackball_w));
-				mat4 M = glm::rotate((*m_rootNode).trans,
-					ROTATION_SCALE_FACTOR * acos(glm::dot(trackball_w, trackball_u)), rotation_axis);
-				(*m_rootNode).trans = M;
+				if (!isnan(rotation_axis[0]) && !isnan(rotation_axis[1]) && !isnan(rotation_axis[2])) {
+					vec3 local_rotation_axis = glm::normalize(vec3(glm::inverse((*m_rootNode).trans) * vec4(rotation_axis, 0.0f)));
+					mat4 M = glm::rotate((*m_rootNode).trans,
+						ROTATION_SCALE_FACTOR * acos(glm::dot(trackball_w, trackball_u)),
+						local_rotation_axis);
+					(*m_rootNode).trans = M;
 
-				cout << "axis: " <<  glm::to_string(rotation_axis) << endl;
+					cout << "axis: " <<  glm::to_string(local_rotation_axis) << endl;
+				}
 			}
 		}
+	}
+	if (m_mode == J && m_button == GLFW_MOUSE_BUTTON_LEFT ) {
+
 	}
 
 	return eventHandled;
@@ -524,7 +586,7 @@ bool A3::mouseButtonInputEvent (
 		int mods
 ) {
 	bool eventHandled(false);
-
+	m_button = button;
 	// Fill in with event handling code...
 	if ( actions == GLFW_PRESS ) {
 		if (!ImGui::IsMouseHoveringAnyWindow()) {
@@ -594,4 +656,10 @@ bool A3::keyInputEvent (
 	// Fill in with event handling code...
 
 	return eventHandled;
+}
+
+void A3::createColorMap () {
+	for (int i = 0; i < (*m_rootNode).totalSceneNodes(); i++) {
+		m_color_map[i] = (1.0f/255.0f)*vec3(rand() % 254 + 1, rand() % 254 + 1, rand() % 254 + 1);
+	}
 }
