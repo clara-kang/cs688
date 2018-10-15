@@ -39,7 +39,7 @@ A3::A3(const std::string & luaSceneFile)
 		trackball_o(vec3(0.0f)),
 		trackball_rotate(false),
 		aspect(1024.0f/768.0f),
-		m_select_mode(true)
+		m_select_mode(false)
 {
 
 }
@@ -420,7 +420,7 @@ static void updateShaderUniforms(
 			location = shader.getUniformLocation("obj_color");
 			vec3 color = m_color_map[node.m_nodeId];
 			glUniform3fv(location, 1, value_ptr(color));
-			cout << glm::to_string(color) << endl;
+			// cout << glm::to_string(color) << endl;
 		}
 	}
 	shader.disable();
@@ -444,21 +444,25 @@ void A3::draw() {
 void A3::renderSceneGraphRec(const SceneNode & root, const glm::mat4 & modelMatrix) {
 
 	if (root.m_nodeType == NodeType::GeometryNode) {
-		// ShaderProgram shader_to_use;
-		// if (!m_select_mode) {
-		// 	shader_to_use = m_shader;
-		// } else {
-		// 	shader_to_use = m_shader_select;
-		// }
 		const GeometryNode * geometryNode = static_cast<const GeometryNode *>(&root);
-		updateShaderUniforms(m_shader_select, *geometryNode, m_view, modelMatrix*root.trans, m_select_mode);
+		if (!m_select_mode) {
+			updateShaderUniforms(m_shader, *geometryNode, m_view, modelMatrix*root.trans, m_select_mode);
+		} else {
+			updateShaderUniforms(m_shader_select, *geometryNode, m_view, modelMatrix*root.trans, m_select_mode);
+		}
 		// cout << "trans: " << glm::to_string(root.trans) << endl;
 		// Get the BatchInfo corresponding to the GeometryNode's unique MeshId.
 		BatchInfo batchInfo = m_batchInfoMap[geometryNode->meshId];
 		//-- Now render the mesh:
-		m_shader_select.enable();
-		glDrawArrays(GL_TRIANGLES, batchInfo.startIndex, batchInfo.numIndices);
-		m_shader_select.disable();
+		if (!m_select_mode) {
+			m_shader.enable();
+			glDrawArrays(GL_TRIANGLES, batchInfo.startIndex, batchInfo.numIndices);
+			m_shader.disable();
+		} else {
+			m_shader_select.enable();
+			glDrawArrays(GL_TRIANGLES, batchInfo.startIndex, batchInfo.numIndices);
+			m_shader_select.disable();
+		}
 
 	}
 	if (root.children.size() > 0 ) {
@@ -564,7 +568,7 @@ bool A3::mouseMoveEvent (
 						local_rotation_axis);
 					(*m_rootNode).trans = M;
 
-					cout << "axis: " <<  glm::to_string(local_rotation_axis) << endl;
+					// cout << "axis: " <<  glm::to_string(local_rotation_axis) << endl;
 				}
 			}
 		}
