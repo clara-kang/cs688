@@ -20,8 +20,8 @@ using namespace glm;
 static bool show_gui = true;
 
 const size_t CIRCLE_PTS = 48;
-const float ROTATION_SCALE_FACTOR = 0.1f;
-const float INPUT_SCALE_FACTOR = 0.001f;
+const float ROTATION_SCALE_FACTOR = 10.0f;
+const float INPUT_SCALE_FACTOR = 0.01f;
 
 static glm::vec3 *m_color_map;
 //----------------------------------------------------------------------------------------
@@ -277,7 +277,7 @@ void A3::initPerspectiveMatrix()
 
 //----------------------------------------------------------------------------------------
 void A3::initViewMatrix() {
-	m_view = glm::lookAt(vec3(0.0f, 0.0f, 0.0f), vec3(0.0f, 0.0f, -1.0f),
+	m_view = glm::lookAt(vec3(0.0f, 0.0f, 10.0f), vec3(0.0f, 0.0f, -1.0f),
 			vec3(0.0f, 1.0f, 0.0f));
 }
 
@@ -553,7 +553,7 @@ bool A3::mouseMoveEvent (
 			x = ((xPos - m_framebufferWidth/2.0f) * 4.0f)/m_framebufferWidth;
 			y = (-yPos + m_framebufferHeight/2.0f) * 4.0f / aspect/m_framebufferHeight;
 		}
-
+		cout << "x: " << x << ", y: " << y << endl;
 		if ( x*x + y*y <= 1.0f ) {
 			if ( !trackball_rotate ){
 				trackball_rotate = true;
@@ -562,14 +562,15 @@ bool A3::mouseMoveEvent (
 				vec3 trackball_w = glm::normalize(vec3(x, y, sqrt(1-x*x-y*y)));
 				vec3 rotation_axis = glm::normalize(glm::cross(trackball_u, trackball_w));
 				if (!isnan(rotation_axis[0]) && !isnan(rotation_axis[1]) && !isnan(rotation_axis[2])) {
-					vec3 local_rotation_axis = glm::normalize(vec3(glm::inverse((*m_rootNode).trans) * vec4(rotation_axis, 0.0f)));
-					mat4 M = glm::rotate((*m_rootNode).trans,
+					//vec3 local_rotation_axis = glm::normalize(vec3(glm::inverse((*m_rootNode).trans) * vec4(rotation_axis, 0.0f)));
+					mat4 M = glm::rotate(mat4(1.0f),
 						ROTATION_SCALE_FACTOR * acos(glm::dot(trackball_w, trackball_u)),
-						local_rotation_axis);
-					(*m_rootNode).trans = M;
+						rotation_axis);
+					(*m_rootNode).trans = M * (*m_rootNode).trans;
 
 					// cout << "axis: " <<  glm::to_string(local_rotation_axis) << endl;
 				}
+				trackball_u = trackball_w;
 			}
 		}
 	}
@@ -595,12 +596,16 @@ bool A3::mouseButtonInputEvent (
 	if ( actions == GLFW_PRESS ) {
 		if (!ImGui::IsMouseHoveringAnyWindow()) {
 			mouse_down = true;
+			if (m_mode == J && m_button == GLFW_MOUSE_BUTTON_LEFT ) {
+
+			}
 
 		}
 	}
 
 	if ( actions == GLFW_RELEASE ) {
 		if (!ImGui::IsMouseHoveringAnyWindow()) {
+			trackball_rotate = false;
 			mouse_down = false;
 		}
 	}

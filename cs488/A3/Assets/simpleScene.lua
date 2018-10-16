@@ -5,7 +5,7 @@
 
 -- Create the top level root node named 'root'.
 rootNode = gr.node('root')
-rootNode:translate(0.0, 0.0, -5.0)
+rootNode:translate(0.0, 0.0, -0.0)
 
 
 -- Create a GeometryNode with MeshId = 'cube', and name = 'torso'.
