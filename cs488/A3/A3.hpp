@@ -96,5 +96,6 @@ protected:
 	int m_button;
 	bool m_select_mode;
 
+	glm::mat4 root_rotation, root_translation;
 	void createColorMap ();
 };

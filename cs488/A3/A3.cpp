@@ -39,7 +39,9 @@ A3::A3(const std::string & luaSceneFile)
 		trackball_o(vec3(0.0f)),
 		trackball_rotate(false),
 		aspect(1024.0f/768.0f),
-		m_select_mode(false)
+		m_select_mode(false),
+		root_translation(mat4(1.0f)),
+		root_rotation(mat4(1.0f))
 {
 
 }
@@ -542,8 +544,10 @@ bool A3::mouseMoveEvent (
 	if (m_button == GLFW_MOUSE_BUTTON_LEFT && mouse_down && m_mode == PO) {
 		float dx = ImGui::GetIO().MouseDelta.x * INPUT_SCALE_FACTOR;
 		float dy = -ImGui::GetIO().MouseDelta.y * INPUT_SCALE_FACTOR;
-		mat4 M = glm::translate((*m_rootNode).trans, vec3(glm::inverse((*m_rootNode).trans) * vec4(dx, dy, 0.0f, 0.0f)));
-		(*m_rootNode).trans = M;
+		mat4 M = glm::translate(root_translation, vec3(dx, dy, 0.0f));
+		//(*m_rootNode).trans = M;
+		root_translation = M;
+		(*m_rootNode).trans = root_translation * root_rotation;
 	}
 	if (m_button == GLFW_MOUSE_BUTTON_RIGHT && mouse_down && m_mode == PO) {
 		if (aspect >= 1.0f) {
@@ -553,7 +557,6 @@ bool A3::mouseMoveEvent (
 			x = ((xPos - m_framebufferWidth/2.0f) * 4.0f)/m_framebufferWidth;
 			y = (-yPos + m_framebufferHeight/2.0f) * 4.0f / aspect/m_framebufferHeight;
 		}
-		cout << "x: " << x << ", y: " << y << endl;
 		if ( x*x + y*y <= 1.0f ) {
 			if ( !trackball_rotate ){
 				trackball_rotate = true;
@@ -566,7 +569,9 @@ bool A3::mouseMoveEvent (
 					mat4 M = glm::rotate(mat4(1.0f),
 						ROTATION_SCALE_FACTOR * acos(glm::dot(trackball_w, trackball_u)),
 						rotation_axis);
-					(*m_rootNode).trans = M * (*m_rootNode).trans;
+					root_rotation = M * root_rotation;
+					(*m_rootNode).trans = root_translation * root_rotation;
+					//(*m_rootNode).trans = M * (*m_rootNode).trans;
 
 					// cout << "axis: " <<  glm::to_string(local_rotation_axis) << endl;
 				}
