@@ -104,6 +104,8 @@ protected:
 	void createColorMap ();
 	int getIndexInColorMap (glm::vec3 color);
 	void extractRootTransMatrices();
-	std::list<JointPointer> jointPointer;
+	void selectNodes (int node_index);
+	void selectChildrenRec (const SceneNode & root);
+	std::list<JointPointer> jointPointers;
 	void initJointPointers(const SceneNode & root);
 };

@@ -99,7 +99,10 @@ void A3::init()
 	extractRootTransMatrices();
 
 	initJointPointers(*m_rootNode);
-
+	cout << "jointPointers size: " << jointPointers.size() << endl;
+	for(JointPointer jp : jointPointers) {
+		cout << jp.m_nodeId;
+	}
 	// Exiting the current scope calls delete automatically on meshConsolidator freeing
 	// all vertex data resources.  This is fine since we already copied this data to
 	// VBOs on the GPU.  We have no use for storing vertex data on the CPU side beyond
@@ -172,14 +175,16 @@ void A3::initJointPointers(const SceneNode & root) {
 		return;
 	}
 	if (root.m_nodeType == NodeType::JointNode) {
+		cout << "joint node found" << endl;
 		const JointNode * jointNode = static_cast<const JointNode *>(&root);
 		for (SceneNode *child : root.children) {
 			if (child->m_nodeType == NodeType::GeometryNode) {
+				cout << "add joint pointer" << endl;
 				JointPointer jp = {
 					child->m_nodeId,
 					jointNode
 				};
-				jointPointer.push_back(jp);
+				jointPointers.push_back(jp);
 			}
 		}
 	}
@@ -667,7 +672,8 @@ bool A3::mouseButtonInputEvent (
 				cout << glm::to_string(color) <<endl;
 				int obj_index = getIndexInColorMap(color);
 				if (obj_index > -1) {
-					m_selected_obj[obj_index] = !m_selected_obj[obj_index];
+					// m_selected_obj[obj_index] = !m_selected_obj[obj_index];
+					selectNodes(obj_index);
 				}
 				delete [] pixel_color;
 			}
@@ -739,10 +745,32 @@ bool A3::keyInputEvent (
 	return eventHandled;
 }
 
+void A3::selectNodes (int node_index) {
+	for (JointPointer jp : jointPointers) {
+		if (node_index == jp.m_nodeId) {
+			for (SceneNode *child : jp.joint->children) {
+				// if (child->m_nodeType == NodeType::GeometryNode) {
+				// 	m_selected_obj[child->m_nodeId] = !m_selected_obj[child->m_nodeId];
+				// }
+				selectChildrenRec(*child);
+			}
+		}
+	}
+}
+
+void A3::selectChildrenRec (const SceneNode & root) {
+	if (root.m_nodeType == NodeType::GeometryNode) {
+		m_selected_obj[root.m_nodeId] = !m_selected_obj[root.m_nodeId];
+	}
+	if (root.children.size() > 0) {
+		for (SceneNode *child : root.children) {
+			selectChildrenRec(*child);
+		}
+	}
+}
+
 void A3::createColorMap () {
 	for (int i = 0; i < (*m_rootNode).totalSceneNodes(); i++) {
 		m_color_map[i] = (1.0f/255.0f)*vec3(rand() % 254 + 1, rand() % 254 + 1, rand() % 254 + 1);
-				cout << m_color_map[i] << endl;
 	}
-	cout << endl;
 }
