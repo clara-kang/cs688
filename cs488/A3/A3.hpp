@@ -17,6 +17,10 @@ struct LightSource {
 	glm::vec3 rgbIntensity;
 };
 
+struct JointPointer {
+	unsigned int m_nodeId;
+	const SceneNode* joint;
+};
 
 class A3 : public CS488Window {
 public:
@@ -96,6 +100,10 @@ protected:
 	int m_button;
 	bool m_select_mode;
 
-	glm::mat4 root_rotation, root_translation;
+	glm::mat4 root_rotation, root_translation, root_scale;
 	void createColorMap ();
+	int getIndexInColorMap (glm::vec3 color);
+	void extractRootTransMatrices();
+	std::list<JointPointer> jointPointer;
+	void initJointPointers(const SceneNode & root);
 };

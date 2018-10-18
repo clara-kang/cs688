@@ -20,10 +20,11 @@ using namespace glm;
 static bool show_gui = true;
 
 const size_t CIRCLE_PTS = 48;
-const float ROTATION_SCALE_FACTOR = 10.0f;
-const float INPUT_SCALE_FACTOR = 0.01f;
+const float ROTATION_SCALE_FACTOR = 1.0f;
+const float INPUT_SCALE_FACTOR = 0.001f;
 
 static glm::vec3 *m_color_map;
+static bool *m_selected_obj;
 //----------------------------------------------------------------------------------------
 // Constructor
 A3::A3(const std::string & luaSceneFile)
@@ -50,7 +51,7 @@ A3::A3(const std::string & luaSceneFile)
 // Destructor
 A3::~A3()
 {
-
+	delete [] m_color_map;
 }
 
 //----------------------------------------------------------------------------------------
@@ -95,6 +96,9 @@ void A3::init()
 
 	initLightSources();
 
+	extractRootTransMatrices();
+
+	initJointPointers(*m_rootNode);
 
 	// Exiting the current scope calls delete automatically on meshConsolidator freeing
 	// all vertex data resources.  This is fine since we already copied this data to
@@ -102,6 +106,13 @@ void A3::init()
 	// this point.
 	m_color_map = new vec3[(*m_rootNode).totalSceneNodes()];
 	createColorMap();
+	m_selected_obj = new bool[(*m_rootNode).totalSceneNodes()];
+	for (int i = 0; i < (*m_rootNode).totalSceneNodes(); i++) {
+		m_selected_obj[i] = false;
+	}
+	// for (const SceneNode * node : (*m_rootNode).children)  {
+	// 	cout << node->m_name << ": "<< node->m_nodeId << endl;
+	// }
 }
 
 //----------------------------------------------------------------------------------------
@@ -137,6 +148,44 @@ void A3::createShaderProgram()
 	m_shader_arcCircle.attachVertexShader( getAssetFilePath("arc_VertexShader.vs").c_str() );
 	m_shader_arcCircle.attachFragmentShader( getAssetFilePath("arc_FragmentShader.fs").c_str() );
 	m_shader_arcCircle.link();
+}
+
+void A3::extractRootTransMatrices() {
+	vec3 root_s_extract = vec3(glm::length((*m_rootNode).trans[0]), glm::length((*m_rootNode).trans[1]),
+		glm::length((*m_rootNode).trans[2]));
+	root_scale = mat4(1.0f);
+	for (int i = 0; i < 3; i++) {
+		root_scale[i][i] = root_s_extract[i];
+	}
+	mat3 root_r_extract = mat3((*m_rootNode).trans);
+	for (int i = 0; i < 3; i++) {
+		root_r_extract[i] = root_r_extract[i] / root_s_extract[i];
+	}
+	root_rotation = mat4(vec4(root_r_extract[0], 0.0f), vec4(root_r_extract[1], 0.0f),
+		vec4(root_r_extract[2], 0.0f), vec4(0.0f, 0.0f, 0.0f, 1.0f));
+	vec3 root_t_extract = vec3((*m_rootNode).trans[3]);
+	root_translation = glm::translate(mat4(1.0f), root_t_extract);
+}
+
+void A3::initJointPointers(const SceneNode & root) {
+	if (root.children.size() == 0 ) {
+		return;
+	}
+	if (root.m_nodeType == NodeType::JointNode) {
+		const JointNode * jointNode = static_cast<const JointNode *>(&root);
+		for (SceneNode *child : root.children) {
+			if (child->m_nodeType == NodeType::GeometryNode) {
+				JointPointer jp = {
+					child->m_nodeId,
+					jointNode
+				};
+				jointPointer.push_back(jp);
+			}
+		}
+	}
+	for (SceneNode *child : root.children) {
+		initJointPointers(*child);
+	}
 }
 
 //----------------------------------------------------------------------------------------
@@ -279,7 +328,7 @@ void A3::initPerspectiveMatrix()
 
 //----------------------------------------------------------------------------------------
 void A3::initViewMatrix() {
-	m_view = glm::lookAt(vec3(0.0f, 0.0f, 10.0f), vec3(0.0f, 0.0f, -1.0f),
+	m_view = glm::lookAt(vec3(0.0f, 0.0f, 0.0f), vec3(0.0f, 0.0f, -1.0f),
 			vec3(0.0f, 1.0f, 0.0f));
 }
 
@@ -419,14 +468,28 @@ static void updateShaderUniforms(
 			glUniform1f(location, node.material.shininess);
 			CHECK_GL_ERRORS;
 		} else {
-			location = shader.getUniformLocation("obj_color");
 			vec3 color = m_color_map[node.m_nodeId];
+			location = shader.getUniformLocation("obj_color");
+			if (!m_selected_obj[node.m_nodeId]) {
+				color = 0.5f*color;
+			}
 			glUniform3fv(location, 1, value_ptr(color));
-			// cout << glm::to_string(color) << endl;
+			CHECK_GL_ERRORS;
 		}
 	}
 	shader.disable();
 
+}
+
+int A3::getIndexInColorMap (vec3 color) {
+	for (int i = 0; i < (*m_rootNode).totalSceneNodes(); i++) {
+		vec3 res1 = m_color_map[i] - color;
+		vec3 res2 = 0.5f * m_color_map[i] - color;
+		if (length(res1) < 0.01 || length(res2) < 0.01) {
+			return i;
+		}
+	}
+	return -1;
 }
 
 //----------------------------------------------------------------------------------------
@@ -545,9 +608,8 @@ bool A3::mouseMoveEvent (
 		float dx = ImGui::GetIO().MouseDelta.x * INPUT_SCALE_FACTOR;
 		float dy = -ImGui::GetIO().MouseDelta.y * INPUT_SCALE_FACTOR;
 		mat4 M = glm::translate(root_translation, vec3(dx, dy, 0.0f));
-		//(*m_rootNode).trans = M;
 		root_translation = M;
-		(*m_rootNode).trans = root_translation * root_rotation;
+		(*m_rootNode).trans = root_translation * root_rotation * root_scale;
 	}
 	if (m_button == GLFW_MOUSE_BUTTON_RIGHT && mouse_down && m_mode == PO) {
 		if (aspect >= 1.0f) {
@@ -565,15 +627,11 @@ bool A3::mouseMoveEvent (
 				vec3 trackball_w = glm::normalize(vec3(x, y, sqrt(1-x*x-y*y)));
 				vec3 rotation_axis = glm::normalize(glm::cross(trackball_u, trackball_w));
 				if (!isnan(rotation_axis[0]) && !isnan(rotation_axis[1]) && !isnan(rotation_axis[2])) {
-					//vec3 local_rotation_axis = glm::normalize(vec3(glm::inverse((*m_rootNode).trans) * vec4(rotation_axis, 0.0f)));
 					mat4 M = glm::rotate(mat4(1.0f),
 						ROTATION_SCALE_FACTOR * acos(glm::dot(trackball_w, trackball_u)),
 						rotation_axis);
 					root_rotation = M * root_rotation;
-					(*m_rootNode).trans = root_translation * root_rotation;
-					//(*m_rootNode).trans = M * (*m_rootNode).trans;
-
-					// cout << "axis: " <<  glm::to_string(local_rotation_axis) << endl;
+					(*m_rootNode).trans = root_translation * root_rotation * root_scale;
 				}
 				trackball_u = trackball_w;
 			}
@@ -602,7 +660,16 @@ bool A3::mouseButtonInputEvent (
 		if (!ImGui::IsMouseHoveringAnyWindow()) {
 			mouse_down = true;
 			if (m_mode == J && m_button == GLFW_MOUSE_BUTTON_LEFT ) {
-
+				uint8_t *pixel_color = new uint8_t[3];
+				glReadPixels(ImGui::GetIO().MousePos.x, m_framebufferHeight - ImGui::GetIO().MousePos.y,
+					1,1,GL_RGB,GL_UNSIGNED_BYTE,(GLvoid*)pixel_color);
+				vec3 color = (1.0f/255.0f)*vec3((float)pixel_color[0], (float)pixel_color[1], (float)pixel_color[2]);
+				cout << glm::to_string(color) <<endl;
+				int obj_index = getIndexInColorMap(color);
+				if (obj_index > -1) {
+					m_selected_obj[obj_index] = !m_selected_obj[obj_index];
+				}
+				delete [] pixel_color;
 			}
 
 		}
@@ -675,5 +742,7 @@ bool A3::keyInputEvent (
 void A3::createColorMap () {
 	for (int i = 0; i < (*m_rootNode).totalSceneNodes(); i++) {
 		m_color_map[i] = (1.0f/255.0f)*vec3(rand() % 254 + 1, rand() % 254 + 1, rand() % 254 + 1);
+				cout << m_color_map[i] << endl;
 	}
+	cout << endl;
 }
