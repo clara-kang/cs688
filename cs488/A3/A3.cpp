@@ -29,7 +29,7 @@ static bool reset_rot = false;
 static bool reset_joint = false;
 static bool reset_all = false;
 static bool draw_circle = false;
-static bool z_buffer = false;
+static bool z_buffer = true;
 static bool bculling = false;
 static bool fculling = false;
 static int rotate_x_axis = 0;
@@ -124,6 +124,8 @@ void A3::init()
 	// }
 	initNodeLookupRec(*m_rootNode);
 	initJointTransformsRec(*m_rootNode);
+
+	glEnable(GL_CULL_FACE);
 	// Exiting the current scope calls delete automatically on meshConsolidator freeing
 	// all vertex data resources.  This is fine since we already copied this data to
 	// VBOs on the GPU.  We have no use for storing vertex data on the CPU side beyond
@@ -509,26 +511,26 @@ void A3::showUI() {
 			 if (ImGui::BeginMenuBar()) {
 				 if (ImGui::BeginMenu("Application")) {
 					 static bool show = true;
-					 ImGui::MenuItem("Reset Position (I)", NULL, &reset_pos);
-					 ImGui::MenuItem("Reset Orientation (O)", NULL, &reset_rot);
-					 ImGui::MenuItem("Reset Joints (S)", NULL, &reset_joint);
-					 ImGui::MenuItem("Reset All (A)", NULL, &reset_all);
-					 ImGui::MenuItem("Quit (Q)", NULL, &quit);
+					 ImGui::MenuItem("Reset Position", "I", &reset_pos);
+					 ImGui::MenuItem("Reset Orientation", "O", &reset_rot);
+					 ImGui::MenuItem("Reset Joints", "S", &reset_joint);
+					 ImGui::MenuItem("Reset All", "A", &reset_all);
+					 ImGui::MenuItem("Quit", "Q", &quit);
 					 ImGui::EndMenu();
 				 }
 				 if (ImGui::BeginMenu("Edit")) {
 					 static bool show = true;
-					 ImGui::MenuItem("Undo (U)", NULL, &undo);
-					 ImGui::MenuItem("Redo (R)", NULL, &redo);
+					 ImGui::MenuItem("Undo", "U", &undo);
+					 ImGui::MenuItem("Redo", "R", &redo);
 
 					 ImGui::EndMenu();
 				 }
 				 if (ImGui::BeginMenu("Options")) {
 					 static bool show = true;
-					 ImGui::MenuItem("Circle", "C", &draw_circle);
-					 ImGui::MenuItem("Z-buffer", "Z", &z_buffer);
-					 ImGui::MenuItem("Backface culling", "B", &bculling);
-					 ImGui::MenuItem("Frontface culling", "F", &fculling);
+					 ImGui::Checkbox("Circle (C)", &draw_circle);
+					 ImGui::Checkbox("Z-buffer (Z)", &z_buffer);
+					 ImGui::Checkbox("Backface culling (B)", &bculling);
+					 ImGui::Checkbox("Frontface culling (F)", &fculling);
 
 					 ImGui::EndMenu();
 				 }
@@ -605,13 +607,24 @@ int A3::getIndexInColorMap (vec3 color) {
  * Called once per frame, after guiLogic().
  */
 void A3::draw() {
-
-	glEnable( GL_DEPTH_TEST );
+	if (z_buffer) {
+		glEnable( GL_DEPTH_TEST );
+	}
+	glEnable( GL_CULL_FACE );
+	if ( fculling && !bculling ) {
+		glCullFace(GL_FRONT);
+	} else if ( bculling && !fculling ) {
+		glCullFace(GL_BACK);
+	} else if ( bculling && fculling ) {
+		glCullFace ( GL_FRONT_AND_BACK );
+	}
 	renderSceneGraph(*m_rootNode);
 
 
 	glDisable( GL_DEPTH_TEST );
-	renderArcCircle();
+	if ( draw_circle ) {
+		renderArcCircle();
+	}
 }
 
 void A3::renderSceneGraphRec(const SceneNode & root, const glm::mat4 & modelMatrix,
