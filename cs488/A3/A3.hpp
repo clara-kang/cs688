@@ -114,10 +114,11 @@ protected:
 	void selectNodes (int node_index);
 	void selectChildrenRec (const SceneNode & root);
 	std::list<JointPointer> jointPointers;
-	//std::list<JointTransforms> m_jointTransforms;
-	//std::map<unsigned int, bool> m_selected_joints;
+	// node id as key, node pointer as value
 	std::map<unsigned int, SceneNode *> m_node_lookup;
+	// joint node id as key, value is the stack of transformation
 	std::map<unsigned int, std::list<glm::mat4>> m_jointTransforms;
+	// joint node id as key, value is true is joint selected
 	std::map<unsigned int, bool> m_joint_affected;
 	void initJointPointers(const SceneNode & root);
 	void initJointTransformsRec(const SceneNode & root);
