@@ -23,10 +23,13 @@ struct JointPointer {
 	const SceneNode* joint;
 };
 
-struct JointTransforms {
-	const SceneNode* joint;
-	std::list<glm::mat4> transStack;
+struct JointTransform {
+	glm::mat4 trans_matrix;
+	double current_x;
+	double current_y;
 };
+
+
 
 class A3 : public CS488Window {
 public:
@@ -117,7 +120,7 @@ protected:
 	// node id as key, node pointer as value
 	std::map<unsigned int, SceneNode *> m_node_lookup;
 	// joint node id as key, value is the stack of transformation
-	std::map<unsigned int, std::list<glm::mat4>> m_jointTransforms;
+	std::map<unsigned int, std::list<JointTransform>> m_jointTransforms;
 	// joint node id as key, value is true is joint selected
 	std::map<unsigned int, bool> m_joint_affected;
 	void initJointPointers(const SceneNode & root);

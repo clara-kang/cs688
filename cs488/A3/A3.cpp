@@ -224,7 +224,7 @@ void A3::initNodeLookupRec(SceneNode & root){
 }
 void A3::initJointTransformsRec(const SceneNode & root) {
 	if (root.m_nodeType == NodeType::JointNode) {
-		std::list<mat4> list;
+		std::list<JointTransform> list;
 		m_joint_affected[root.m_nodeId] = false;
 		m_jointTransforms[root.m_nodeId] = list;
 	}
@@ -456,7 +456,7 @@ void A3::appLogic()
 		reset_rot = false;
 	}
 	if ( reset_joint ) {
-		for (std::map<unsigned int, std::list<glm::mat4>>::iterator it=m_jointTransforms.begin();
+		for (std::map<unsigned int, std::list<JointTransform>>::iterator it=m_jointTransforms.begin();
 			it!=m_jointTransforms.end(); ++it) {
 			 (it->second).clear();
 		}
@@ -646,15 +646,17 @@ void A3::renderSceneGraphRec(const SceneNode & root, const glm::mat4 & modelMatr
 		glm::mat4 node_trans = root.m_translation*root.m_rotation;
 		if (root.m_nodeType == NodeType::JointNode) {
 			mat4 M_final_rotation = mat4(1.0f);
-			std::list<mat4>::reverse_iterator it;
+			std::list<JointTransform>::reverse_iterator it;
 			int cnt = 0;
 			for (it=	m_jointTransforms[root.m_nodeId].rbegin();
 				it!=m_jointTransforms[root.m_nodeId].rend(); it++) {
+				// only apply transform matrices up to stack_current_index
 				if (cnt >= stack_current_index) {
 					break;
 				}
-				M_final_rotation = (*it) * M_final_rotation;
+				M_final_rotation = (*it).trans_matrix * M_final_rotation;
 				// M_final_rotation = M_final_rotation * (*it);
+				//cout << "trans_matrix: " << glm::to_string((*it).trans_matrix);
 				cnt ++;
 			}
 			node_trans = root.m_translation * M_final_rotation * root.m_rotation;
@@ -777,29 +779,31 @@ bool A3::mouseMoveEvent (
 			if (it->second) { // If the joint is affected
 				JointNode * jn = (JointNode *)m_node_lookup[it->first]; // get the joint
 				// get the next angle
-				float next_angle;
+				double next_angle;
 				if (rotate_x_axis == 0) {
 					// cout << "rotation of : " << jn->m_nodeId << ": " << jn->m_joint_y.init << ", max: "
 					// 	<<  jn->m_joint_y.max << ", min: " << jn-> m_joint_y.min << endl;
-					next_angle = std::min((float)jn->m_joint_y.max, (float)jn->m_joint_y.init + d_rotation);
-					next_angle = std::max((float)jn->m_joint_y.min, next_angle);
+					double current_y = m_jointTransforms[it->first].front().current_y;
+					mat4 trans = m_jointTransforms[it->first].front().trans_matrix;
+					next_angle = std::min(jn->m_joint_y.max, current_y + d_rotation);
+					next_angle = std::max(jn->m_joint_y.min, next_angle);
 					// cout << "next_angle: " << next_angle << endl;
 					// change top transformation matrix in joint's stack by change in angle
-					if (next_angle != jn->m_joint_y.init) {
-						(m_jointTransforms[it->first]).front() = glm::rotate(m_jointTransforms[it->first].front(),
-							(float)(PI*((next_angle - jn->m_joint_y.init))/180.0f), rotation_axis);
-						jn->m_joint_y.init = next_angle;
+					if (next_angle != current_y) {
+						m_jointTransforms[it->first].front().trans_matrix = glm::rotate(trans, (float)(PI*((next_angle - current_y))/180.0f), rotation_axis);
+						(m_jointTransforms[it->first]).front().current_y = next_angle;
 					}
 				} else {
 					// cout << "rotation of : " << jn->m_nodeId << ": " << jn->m_joint_x.init << ", max: "
 					// 	<<  jn->m_joint_x.max << ", min: " << jn-> m_joint_x.min << endl;
-					next_angle = std::min((float)jn->m_joint_x.max, (float)jn->m_joint_x.init + d_rotation);
-					next_angle = std::max((float)jn->m_joint_x.min, next_angle);
+					double current_x = m_jointTransforms[it->first].front().current_x;
+					mat4 trans = m_jointTransforms[it->first].front().trans_matrix;
+					next_angle = std::min(jn->m_joint_x.max, current_x + d_rotation);
+					next_angle = std::max(jn->m_joint_x.min, next_angle);
 					// cout << "next_angle: " << next_angle << endl;
-					if (next_angle != jn->m_joint_x.init) {
-						(m_jointTransforms[it->first]).front() = glm::rotate(m_jointTransforms[it->first].front(),
-							(float)(PI*((next_angle - jn->m_joint_x.init))/180.0f), vec3(1.0f, 0.0f, 0.0f));
-						jn->m_joint_x.init = next_angle;
+					if (next_angle != current_x) {
+						m_jointTransforms[it->first].front().trans_matrix = glm::rotate(trans, (float)(PI*((next_angle - current_x))/180.0f), vec3(1.0f, 0.0f, 0.0f));
+						(m_jointTransforms[it->first]).front().current_x = next_angle;
 					}
 				}
 			}
@@ -847,16 +851,33 @@ bool A3::mouseButtonInputEvent (
 				}
 				if (push_matrix) {
 					int num_matrices_to_pop = stack_cnt - stack_current_index;
+					stack_cnt -= num_matrices_to_pop;
+					JointTransform jt;
 					// cout << "num_matrices_to_pop: " << num_matrices_to_pop << endl;
 					for (std::map<unsigned int, bool>::iterator it=m_joint_affected.begin(); it!=m_joint_affected.end(); ++it) {
 						// before pushing new transform, pop all matrices above current index
 						for (int i = 0; i < num_matrices_to_pop; i++) {
 							m_jointTransforms[it->first].pop_front();
 						}
+						if (stack_cnt > 0) {
+							JointTransform last_trans = m_jointTransforms[it->first].front();
+							jt = {
+								mat4(1.0f),
+								last_trans.current_x,
+								last_trans.current_y
+							};
+						} else {
+							// get joint
+							JointNode * jn = (JointNode *)m_node_lookup[it->first];
+							jt = {
+								mat4(1.0f),
+								jn->m_joint_x.init,
+								jn->m_joint_y.init
+							};
+						}
 						// now push new transform
-						m_jointTransforms[it->first].push_front(mat4(1.0f));
+						m_jointTransforms[it->first].push_front(jt);
 					}
-					stack_cnt -= num_matrices_to_pop;
 					stack_cnt ++;
 					stack_current_index ++;
 					// cout << "stack_cnt: " << stack_cnt << endl;
