@@ -11,6 +11,7 @@
 
 #include <glm/glm.hpp>
 #include <memory>
+#include <map>
 
 struct LightSource {
 	glm::vec3 position;
@@ -20,6 +21,11 @@ struct LightSource {
 struct JointPointer {
 	unsigned int m_nodeId;
 	const SceneNode* joint;
+};
+
+struct JointTransforms {
+	const SceneNode* joint;
+	std::list<glm::mat4> transStack;
 };
 
 class A3 : public CS488Window {
@@ -54,7 +60,8 @@ protected:
 	void initPerspectiveMatrix();
 	void uploadCommonSceneUniforms();
 	void renderSceneGraph(const SceneNode &node);
-	void renderSceneGraphRec(const SceneNode & root, const glm::mat4 & modelMatrix);
+	void renderSceneGraphRec(const SceneNode & root, const glm::mat4 & modelMatrix,
+		const glm::mat4 & scaleMatrix);
 	void renderArcCircle();
 
 	glm::mat4 m_perpsective;
@@ -107,5 +114,17 @@ protected:
 	void selectNodes (int node_index);
 	void selectChildrenRec (const SceneNode & root);
 	std::list<JointPointer> jointPointers;
+	//std::list<JointTransforms> m_jointTransforms;
+	//std::map<unsigned int, bool> m_selected_joints;
+	std::map<unsigned int, SceneNode *> m_node_lookup;
+	std::map<unsigned int, std::list<glm::mat4>> m_jointTransforms;
+	std::map<unsigned int, bool> m_joint_affected;
 	void initJointPointers(const SceneNode & root);
+	void initJointTransformsRec(const SceneNode & root);
+	void initNodeLookupRec(SceneNode & root);
+	void showUI() ;
+	//void initSelectedJointsRec(const SceneNode & root);
+
+	glm::mat4 current_joint_rotation;
+
 };

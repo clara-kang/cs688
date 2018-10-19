@@ -15,9 +15,16 @@ using namespace std;
 #include <glm/gtx/io.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtx/string_cast.hpp>
+#include <map>
 using namespace glm;
 
+#define PI 3.14159f
+
 static bool show_gui = true;
+static bool quit = false;
+static bool undo = false;
+static bool redo = false;
+static int rotate_x_axis = 0;
 
 const size_t CIRCLE_PTS = 48;
 const float ROTATION_SCALE_FACTOR = 1.0f;
@@ -42,7 +49,8 @@ A3::A3(const std::string & luaSceneFile)
 		aspect(1024.0f/768.0f),
 		m_select_mode(false),
 		root_translation(mat4(1.0f)),
-		root_rotation(mat4(1.0f))
+		root_rotation(mat4(1.0f)),
+		current_joint_rotation(mat4(1.0f))
 {
 
 }
@@ -101,8 +109,11 @@ void A3::init()
 	initJointPointers(*m_rootNode);
 	cout << "jointPointers size: " << jointPointers.size() << endl;
 	for(JointPointer jp : jointPointers) {
-		cout << jp.m_nodeId;
+		cout << jp.m_nodeId<<endl;
+		cout << endl;
 	}
+	initNodeLookupRec(*m_rootNode);
+	initJointTransformsRec(*m_rootNode);
 	// Exiting the current scope calls delete automatically on meshConsolidator freeing
 	// all vertex data resources.  This is fine since we already copied this data to
 	// VBOs on the GPU.  We have no use for storing vertex data on the CPU side beyond
@@ -175,11 +186,11 @@ void A3::initJointPointers(const SceneNode & root) {
 		return;
 	}
 	if (root.m_nodeType == NodeType::JointNode) {
-		cout << "joint node found" << endl;
+		// cout << "joint node found" << endl;
 		const JointNode * jointNode = static_cast<const JointNode *>(&root);
 		for (SceneNode *child : root.children) {
 			if (child->m_nodeType == NodeType::GeometryNode) {
-				cout << "add joint pointer" << endl;
+				// cout << "add joint pointer" << endl;
 				JointPointer jp = {
 					child->m_nodeId,
 					jointNode
@@ -190,6 +201,24 @@ void A3::initJointPointers(const SceneNode & root) {
 	}
 	for (SceneNode *child : root.children) {
 		initJointPointers(*child);
+	}
+}
+
+void A3::initNodeLookupRec(SceneNode & root){
+	//SceneNode b = root;
+	m_node_lookup.insert(std::make_pair(root.m_nodeId, &root));
+	for (SceneNode *child : root.children) {
+		initNodeLookupRec(*child);
+	}
+}
+void A3::initJointTransformsRec(const SceneNode & root) {
+	if (root.m_nodeType == NodeType::JointNode) {
+		std::list<mat4> list;
+		m_joint_affected[root.m_nodeId] = false;
+		m_jointTransforms[root.m_nodeId] = list;
+	}
+	for (SceneNode *child : root.children) {
+		initJointTransformsRec(*child);
 	}
 }
 
@@ -409,32 +438,57 @@ void A3::guiLogic()
 		ImGui::SetNextWindowPos(ImVec2(50, 50));
 		firstRun = false;
 	}
-
-	static bool showDebugWindow(true);
-	ImGuiWindowFlags windowFlags(ImGuiWindowFlags_AlwaysAutoResize);
-	float opacity(0.5f);
-
-	ImGui::Begin("Properties", &showDebugWindow, ImVec2(100,100), opacity,
-			windowFlags);
-
-
-		// Add more gui elements here here ...
-
-
-		// Create Button, and check if it was clicked:
-		if( ImGui::Button( "Quit Application" ) ) {
-			glfwSetWindowShouldClose(m_window, GL_TRUE);
-		}
-		if (ImGui::RadioButton( "Position/Orientation (P)", &m_mode, PO )) {
-			m_select_mode = false;
-		}
-		if (ImGui::RadioButton( "Joint (J)", &m_mode, J )) {
-			m_select_mode = true;
-		}
-		ImGui::Text( "Framerate: %.1f FPS", ImGui::GetIO().Framerate );
-	ImGui::End();
+	//ImGui::ShowTestWindow();
+	showUI();
 }
 
+void A3::showUI() {
+	 static bool showDebugWindow(true);
+	 ImGuiWindowFlags windowFlags(ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_MenuBar);
+	 float opacity(0.5f);
+
+	 ImGui::Begin("Properties", &showDebugWindow, ImVec2(100,100), opacity,
+			 windowFlags);
+			 if( quit ) {
+				 glfwSetWindowShouldClose(m_window, GL_TRUE);
+			 }
+			 if (ImGui::RadioButton( "Position/Orientation (P)", &m_mode, PO )) {
+				 m_select_mode = false;
+			 }
+			 if (ImGui::RadioButton( "Joint (J)", &m_mode, J )) {
+				 m_select_mode = true;
+			 }
+			 ImGui::Indent();
+			 ImGui::RadioButton( "x axis", &rotate_x_axis, 1); ImGui::SameLine();
+			 ImGui::RadioButton( "y axis", &rotate_x_axis, 0);
+			 if (ImGui::BeginMenuBar()) {
+				 if (ImGui::BeginMenu("Application")) {
+					 static bool show = true;
+					 ImGui::MenuItem("Quit (Q)", NULL, &quit);
+					 ImGui::MenuItem("menu bar", NULL, &show);
+
+					 ImGui::EndMenu();
+				 }
+				 if (ImGui::BeginMenu("Edit")) {
+					 static bool show = true;
+					 ImGui::MenuItem("menu bar", NULL, &show);
+					 ImGui::MenuItem("menu bar", NULL, &show);
+
+					 ImGui::EndMenu();
+				 }
+				 if (ImGui::BeginMenu("Options")) {
+					 static bool show = true;
+					 ImGui::MenuItem("menu bar", NULL, &show);
+					 ImGui::MenuItem("menu bar", NULL, &show);
+
+					 ImGui::EndMenu();
+				 }
+				 ImGui::EndMenuBar();
+			 }
+		 // }
+	 // 	ImGui::Text( "Framerate: %.1f FPS", ImGui::GetIO().Framerate );
+	 ImGui::End();
+ }
 //----------------------------------------------------------------------------------------
 // Update mesh specific shader uniforms:
 static void updateShaderUniforms(
@@ -511,16 +565,20 @@ void A3::draw() {
 	renderArcCircle();
 }
 
-void A3::renderSceneGraphRec(const SceneNode & root, const glm::mat4 & modelMatrix) {
+void A3::renderSceneGraphRec(const SceneNode & root, const glm::mat4 & modelMatrix,
+	const glm::mat4 & scaleMatrix) {
 
 	if (root.m_nodeType == NodeType::GeometryNode) {
 		const GeometryNode * geometryNode = static_cast<const GeometryNode *>(&root);
 		if (!m_select_mode) {
-			updateShaderUniforms(m_shader, *geometryNode, m_view, modelMatrix*root.trans, m_select_mode);
+			updateShaderUniforms(m_shader, *geometryNode, m_view,
+				modelMatrix*root.m_translation*root.m_rotation*root.m_scale*scaleMatrix, m_select_mode);
 		} else {
-			updateShaderUniforms(m_shader_select, *geometryNode, m_view, modelMatrix*root.trans, m_select_mode);
+			// cout << "modelMatrix of " << root.m_name << ": "<< glm::to_string(glm::transpose(modelMatrix)) << endl;
+			// cout << "trans of " << root.m_name << ": "<< glm::to_string(glm::transpose(root.trans)) << endl;
+			updateShaderUniforms(m_shader_select, *geometryNode, m_view,
+				modelMatrix*root.m_translation*root.m_rotation*root.m_scale*scaleMatrix, m_select_mode);
 		}
-		// cout << "trans: " << glm::to_string(root.trans) << endl;
 		// Get the BatchInfo corresponding to the GeometryNode's unique MeshId.
 		BatchInfo batchInfo = m_batchInfoMap[geometryNode->meshId];
 		//-- Now render the mesh:
@@ -536,9 +594,18 @@ void A3::renderSceneGraphRec(const SceneNode & root, const glm::mat4 & modelMatr
 
 	}
 	if (root.children.size() > 0 ) {
+		glm::mat4 node_trans = root.m_translation*root.m_rotation;
+		if (root.m_nodeType == NodeType::JointNode) {
+			mat4 M_final_rotation = mat4(1.0f);
+			for (std::list<mat4>::iterator it=	m_jointTransforms[root.m_nodeId].begin();
+				it!=m_jointTransforms[root.m_nodeId].end();++it) {
+				M_final_rotation = (*it) * M_final_rotation;
+			}
+			node_trans = root.m_translation * M_final_rotation * root.m_rotation;
+		}
 		for (const SceneNode * node : root.children) {
 			const SceneNode * nextRoot = static_cast<const SceneNode *>(node);
-			renderSceneGraphRec(*nextRoot, modelMatrix * root.trans);
+			renderSceneGraphRec(*nextRoot, modelMatrix * node_trans, scaleMatrix * root.m_scale);
 		}
 	}
 }
@@ -549,7 +616,7 @@ void A3::renderSceneGraph(const SceneNode & root) {
 	// Bind the VAO once here, and reuse for all GeometryNode rendering below.
 	glBindVertexArray(m_vao_meshData);
 	//const SceneNode * nextRoot = static_cast<const SceneNode *>(root);
-	renderSceneGraphRec(root, mat4(1.0f));
+	renderSceneGraphRec(root, mat4(1.0f), mat4(1.0f));
 
 	glBindVertexArray(0);
 	CHECK_GL_ERRORS;
@@ -615,6 +682,7 @@ bool A3::mouseMoveEvent (
 		mat4 M = glm::translate(root_translation, vec3(dx, dy, 0.0f));
 		root_translation = M;
 		(*m_rootNode).trans = root_translation * root_rotation * root_scale;
+		(*m_rootNode).m_translation = root_translation;
 	}
 	if (m_button == GLFW_MOUSE_BUTTON_RIGHT && mouse_down && m_mode == PO) {
 		if (aspect >= 1.0f) {
@@ -637,13 +705,53 @@ bool A3::mouseMoveEvent (
 						rotation_axis);
 					root_rotation = M * root_rotation;
 					(*m_rootNode).trans = root_translation * root_rotation * root_scale;
+					(*m_rootNode).m_rotation = root_rotation;
 				}
 				trackball_u = trackball_w;
 			}
 		}
 	}
-	if (m_mode == J && m_button == GLFW_MOUSE_BUTTON_LEFT ) {
-
+	if (mouse_down && m_mode == J && m_button == GLFW_MOUSE_BUTTON_RIGHT) {
+		float d_rotation;
+		vec3 rotation_axis;
+		if (rotate_x_axis == 1) {
+			rotation_axis = vec3(1.0f, 0.0f, 0.0f);
+			d_rotation = ImGui::GetIO().MouseDelta.x * ROTATION_SCALE_FACTOR;
+		} else {
+			rotation_axis = vec3(0.0f, 1.0f, 0.0f);
+			d_rotation = -ImGui::GetIO().MouseDelta.y * ROTATION_SCALE_FACTOR;
+		}
+		for (std::map<unsigned int, bool>::iterator it=m_joint_affected.begin(); it!=m_joint_affected.end(); ++it) {
+			if (it->second) { // If the joint is affected
+				JointNode * jn = (JointNode *)m_node_lookup[it->first]; // get the joint
+				// get the next angle
+				float next_angle;
+				if (rotate_x_axis == 0) {
+					// cout << "rotation of : " << jn->m_nodeId << ": " << jn->m_joint_y.init << ", max: "
+					// 	<<  jn->m_joint_y.max << ", min: " << jn-> m_joint_y.min << endl;
+					next_angle = std::min((float)jn->m_joint_y.max, (float)jn->m_joint_y.init + d_rotation);
+					next_angle = std::max((float)jn->m_joint_y.min, next_angle);
+					// cout << "next_angle: " << next_angle << endl;
+					// change top transformation matrix in joint's stack by change in angle
+					if (next_angle != jn->m_joint_y.init) {
+						(m_jointTransforms[it->first]).front() = glm::rotate(m_jointTransforms[it->first].front(),
+							(float)(PI*((next_angle - jn->m_joint_y.init))/180.0f), rotation_axis);
+						jn->m_joint_y.init = next_angle;
+					}
+				} else {
+					// cout << "rotation of : " << jn->m_nodeId << ": " << jn->m_joint_x.init << ", max: "
+					// 	<<  jn->m_joint_x.max << ", min: " << jn-> m_joint_x.min << endl;
+					next_angle = std::min((float)jn->m_joint_x.max, (float)jn->m_joint_x.init + d_rotation);
+					next_angle = std::max((float)jn->m_joint_x.min, next_angle);
+					// cout << "next_angle: " << next_angle << endl;
+					if (next_angle != jn->m_joint_x.init) {
+						(m_jointTransforms[it->first]).front() = glm::rotate(m_jointTransforms[it->first].front(),
+							(float)(PI*((next_angle - jn->m_joint_x.init))/180.0f), vec3(1.0f, 0.0f, 0.0f));
+						jn->m_joint_x.init = next_angle;
+					}
+				}
+			}
+		}
 	}
 
 	return eventHandled;
@@ -669,15 +777,21 @@ bool A3::mouseButtonInputEvent (
 				glReadPixels(ImGui::GetIO().MousePos.x, m_framebufferHeight - ImGui::GetIO().MousePos.y,
 					1,1,GL_RGB,GL_UNSIGNED_BYTE,(GLvoid*)pixel_color);
 				vec3 color = (1.0f/255.0f)*vec3((float)pixel_color[0], (float)pixel_color[1], (float)pixel_color[2]);
-				cout << glm::to_string(color) <<endl;
 				int obj_index = getIndexInColorMap(color);
 				if (obj_index > -1) {
-					// m_selected_obj[obj_index] = !m_selected_obj[obj_index];
 					selectNodes(obj_index);
 				}
+
 				delete [] pixel_color;
 			}
-
+			if (m_mode == J && m_button == GLFW_MOUSE_BUTTON_RIGHT ) {
+				for (std::map<unsigned int, bool>::iterator it=m_joint_affected.begin(); it!=m_joint_affected.end(); ++it) {
+					// if (it->second) {
+					m_jointTransforms[it->first].push_front(mat4(1.0f));
+					cout << "size: " << m_jointTransforms[it->first].size() << endl;
+					// }
+				}
+			}
 		}
 	}
 
@@ -748,19 +862,22 @@ bool A3::keyInputEvent (
 void A3::selectNodes (int node_index) {
 	for (JointPointer jp : jointPointers) {
 		if (node_index == jp.m_nodeId) {
+			//SceneNode b = *jp.joint;
+			//m_selected_joints.at(&b) = !m_selected_joints.at(&b); // select joint
+			m_joint_affected[jp.joint->m_nodeId] = !m_joint_affected[jp.joint->m_nodeId];
 			for (SceneNode *child : jp.joint->children) {
-				// if (child->m_nodeType == NodeType::GeometryNode) {
-				// 	m_selected_obj[child->m_nodeId] = !m_selected_obj[child->m_nodeId];
-				// }
-				selectChildrenRec(*child);
+				selectChildrenRec(*child); //select all children
 			}
 		}
 	}
 }
 
 void A3::selectChildrenRec (const SceneNode & root) {
-	if (root.m_nodeType == NodeType::GeometryNode) {
-		m_selected_obj[root.m_nodeId] = !m_selected_obj[root.m_nodeId];
+	m_selected_obj[root.m_nodeId] = !m_selected_obj[root.m_nodeId];
+	if (root.m_nodeType == NodeType::JointNode) {
+		//SceneNode b = root;
+		//m_selected_joints.at(&b) = !m_selected_joints.at(&b);
+		m_joint_affected[root.m_nodeId] = !m_joint_affected[root.m_nodeId];
 	}
 	if (root.children.size() > 0) {
 		for (SceneNode *child : root.children) {
