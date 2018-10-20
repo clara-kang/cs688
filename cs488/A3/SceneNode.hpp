@@ -10,6 +10,18 @@
 #include <string>
 #include <iostream>
 
+#include "cs488-framework/GlErrorCheck.hpp"
+#include "cs488-framework/MathUtils.hpp"
+
+#include <imgui/imgui.h>
+
+#include <glm/gtc/type_ptr.hpp>
+#include <glm/gtx/io.hpp>
+#include <glm/gtc/matrix_transform.hpp>
+#include <glm/gtx/string_cast.hpp>
+#include <map>
+using namespace glm;
+//---------
 enum class NodeType {
 	SceneNode,
 	GeometryNode,
@@ -28,6 +40,8 @@ public:
 
     const glm::mat4& get_transform() const;
     const glm::mat4& get_inverse() const;
+
+		void extractRootTRSMatrices(const glm::mat4& mat);
 
     void set_transform(const glm::mat4& m);
 
