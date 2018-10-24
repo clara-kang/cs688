@@ -482,9 +482,6 @@ void A3::showUI() {
 			 windowFlags);
 			 ImGui::RadioButton( "Position/Orientation (P)", &m_mode, PO );
 			 ImGui::RadioButton( "Joint (J)", &m_mode, J );
-			 ImGui::Indent();
-			 ImGui::RadioButton( "x axis", &rotate_x_axis, 1); ImGui::SameLine();
-			 ImGui::RadioButton( "y axis", &rotate_x_axis, 0);
 			 // menu
 			 if (ImGui::BeginMenuBar()) {
 				 if (ImGui::BeginMenu("Application")) {
@@ -726,13 +723,13 @@ bool A3::mouseMoveEvent (
 ) {
 	bool eventHandled(false);
 	float x,y;
-	if (m_button == GLFW_MOUSE_BUTTON_LEFT && mouse_down && m_mode == PO) {
+	if (m_left_button && mouse_down && m_mode == PO) {
 		float dx = ImGui::GetIO().MouseDelta.x * INPUT_SCALE_FACTOR;
 		float dy = -ImGui::GetIO().MouseDelta.y * INPUT_SCALE_FACTOR;
 		mat4 M = glm::translate((*m_rootNode).m_translation, vec3(dx, dy, 0.0f));
 		(*m_rootNode).m_translation = M;
 	}
-	if (m_button == GLFW_MOUSE_BUTTON_RIGHT && mouse_down && m_mode == PO) {
+	if (m_right_button && mouse_down && m_mode == PO) {
 		if (aspect >= 1.0f) {
 			x = (xPos - m_framebufferWidth/2.0f) * 4.0f * aspect/m_framebufferWidth;
 			y = (-yPos + m_framebufferHeight/2.0f) * 4.0f/m_framebufferHeight;
@@ -757,7 +754,7 @@ bool A3::mouseMoveEvent (
 			}
 		}
 	}
-	if (mouse_down && m_mode == J && (m_button == GLFW_MOUSE_BUTTON_MIDDLE || m_button == GLFW_MOUSE_BUTTON_RIGHT)) {
+	if (mouse_down && m_mode == J && (m_middle_button || m_right_button)) {
 		float d_rotation;
 		vec3 rotation_axis;
 		if (rotate_x_axis == 1) {
@@ -770,6 +767,9 @@ bool A3::mouseMoveEvent (
 		if (m_button == GLFW_MOUSE_BUTTON_MIDDLE) {
 			for (std::map<unsigned int, bool>::iterator it=m_joint_affected.begin(); it!=m_joint_affected.end(); ++it) {
 				if (it->second) { // If the joint is affected
+					if (it->first == neck_id) {
+						continue;
+					}
 					JointNode * jn = (JointNode *)m_node_lookup[it->first]; // get the joint
 					// get the next angle
 					double next_angle;
@@ -794,7 +794,8 @@ bool A3::mouseMoveEvent (
 					}
 				}
 			}
-		} else if (m_button == GLFW_MOUSE_BUTTON_RIGHT) {
+		}
+		if (m_right_button) {
 			if (neck_id < 100 && m_joint_affected[neck_id]) {
 				JointNode * jn = (JointNode *)m_node_lookup[neck_id]; // get the joint
 				double current_y = m_jointTransforms[neck_id].front().current_y;
@@ -825,6 +826,17 @@ bool A3::mouseButtonInputEvent (
 	m_button = button;
 	// Fill in with event handling code...
 	if ( actions == GLFW_PRESS ) {
+		switch (button) {
+			case GLFW_MOUSE_BUTTON_LEFT:
+				m_left_button = true;
+				break;
+			case GLFW_MOUSE_BUTTON_RIGHT:
+				m_right_button = true;
+				break;
+			case GLFW_MOUSE_BUTTON_MIDDLE:
+				m_middle_button = true;
+				break;
+		}
 		if (!ImGui::IsMouseHoveringAnyWindow()) {
 			mouse_down = true;
 			if (m_mode == J && m_button == GLFW_MOUSE_BUTTON_LEFT ) {
@@ -902,6 +914,17 @@ bool A3::mouseButtonInputEvent (
 	}
 
 	if ( actions == GLFW_RELEASE ) {
+		switch (button) {
+			case GLFW_MOUSE_BUTTON_LEFT:
+				m_left_button = true;
+				break;
+			case GLFW_MOUSE_BUTTON_RIGHT:
+				m_right_button = false;
+				break;
+			case GLFW_MOUSE_BUTTON_MIDDLE:
+				m_middle_button = false;
+				break;
+		}
 		if (!ImGui::IsMouseHoveringAnyWindow()) {
 			trackball_rotate = false;
 			mouse_down = false;

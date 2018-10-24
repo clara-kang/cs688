@@ -108,6 +108,9 @@ protected:
 	bool trackball_rotate;
 	float aspect;
 	int m_button;
+	bool m_left_button;
+	bool m_middle_button;
+	bool m_right_button;
 	bool m_select_mode;
 
 	glm::mat4 root_rotation, root_translation, root_scale;
