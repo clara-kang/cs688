@@ -96,8 +96,7 @@ void A3::init()
 	// class.
 	unique_ptr<MeshConsolidator> meshConsolidator (new MeshConsolidator{
 			getAssetFilePath("cube.obj"),
-			getAssetFilePath("sphere.obj"),
-			getAssetFilePath("suzanne.obj")
+			getAssetFilePath("sphere.obj")
 	});
 
 
@@ -486,12 +485,8 @@ void A3::showUI() {
 
 	 ImGui::Begin("Properties", &showDebugWindow, ImVec2(100,100), opacity,
 			 windowFlags);
-			 if (ImGui::RadioButton( "Position/Orientation (P)", &m_mode, PO )) {
-				 m_select_mode = false;
-			 }
-			 if (ImGui::RadioButton( "Joint (J)", &m_mode, J )) {
-				 m_select_mode = true;
-			 }
+			 ImGui::RadioButton( "Position/Orientation (P)", &m_mode, PO );
+			 ImGui::RadioButton( "Joint (J)", &m_mode, J );
 			 ImGui::Indent();
 			 ImGui::RadioButton( "x axis", &rotate_x_axis, 1); ImGui::SameLine();
 			 ImGui::RadioButton( "y axis", &rotate_x_axis, 0);
@@ -552,11 +547,14 @@ static void updateShaderUniforms(
 			glUniformMatrix3fv(location, 1, GL_FALSE, value_ptr(normalMatrix));
 			CHECK_GL_ERRORS;
 
-
 			//-- Set Material values:
 			location = shader.getUniformLocation("material.kd");
 			vec3 kd = node.material.kd;
-			glUniform3fv(location, 1, value_ptr(kd));
+			if (m_selected_obj[node.m_nodeId]) {
+					glUniform3fv(location, 1, value_ptr(vec3(0.5f,0.5f,0.5f)));
+			} else {
+					glUniform3fv(location, 1, value_ptr(kd));
+			}
 			CHECK_GL_ERRORS;
 			location = shader.getUniformLocation("material.ks");
 			vec3 ks = node.material.ks;
@@ -566,6 +564,7 @@ static void updateShaderUniforms(
 			glUniform1f(location, node.material.shininess);
 			CHECK_GL_ERRORS;
 		} else {
+			cout << "in select mode" << endl;
 			vec3 color = m_color_map[node.m_nodeId];
 			location = shader.getUniformLocation("obj_color");
 			if (!m_selected_obj[node.m_nodeId]) {
@@ -621,12 +620,8 @@ void A3::renderSceneGraphRec(const SceneNode & root, const glm::mat4 & modelMatr
 	if (root.m_nodeType == NodeType::GeometryNode) {
 		const GeometryNode * geometryNode = static_cast<const GeometryNode *>(&root);
 		if (!m_select_mode) {
-			// updateShaderUniforms(m_shader, *geometryNode, m_view,
-			// 	modelMatrix*root.m_translation*root.m_rotation*root.m_scale*scaleMatrix, m_select_mode);
 			updateShaderUniforms(m_shader, *geometryNode, m_view,
 				modelMatrix*root.trans*scaleMatrix, m_select_mode);
-				//cout << "modelMatrix: " << modelMatrix << endl;
-				//cout << "modelMatrix*root.m_translation*root.m_rotation: " << glm::transpose(modelMatrix*root.m_translation*root.m_rotation) << endl;
 		} else {
 			updateShaderUniforms(m_shader_select, *geometryNode, m_view,
 				modelMatrix*root.m_translation*root.m_rotation*root.m_scale*scaleMatrix, m_select_mode);
@@ -642,6 +637,7 @@ void A3::renderSceneGraphRec(const SceneNode & root, const glm::mat4 & modelMatr
 			m_shader_select.enable();
 			glDrawArrays(GL_TRIANGLES, batchInfo.startIndex, batchInfo.numIndices);
 			m_shader_select.disable();
+			cout << "draw arrays" << endl;
 		}
 
 	}
@@ -658,7 +654,6 @@ void A3::renderSceneGraphRec(const SceneNode & root, const glm::mat4 & modelMatr
 					break;
 				}
 				M_final_rotation = (*it).trans_matrix * M_final_rotation;
-				//cout << "trans_matrix: " << glm::to_string((*it).trans_matrix);
 				cnt ++;
 			}
 			node_trans = root.m_translation * M_final_rotation * root.m_rotation * root.m_scale;
@@ -666,7 +661,6 @@ void A3::renderSceneGraphRec(const SceneNode & root, const glm::mat4 & modelMatr
 		for (const SceneNode * node : root.children) {
 			const SceneNode * nextRoot = static_cast<const SceneNode *>(node);
 			renderSceneGraphRec(*nextRoot, modelMatrix * node_trans, mat4(1.0f));
-			//cout << "modelMatrix * node_trans " << modelMatrix * node_trans << endl;
 		}
 	}
 }
@@ -813,9 +807,7 @@ bool A3::mouseMoveEvent (
 				}
 			}
 		} else if (m_button == GLFW_MOUSE_BUTTON_RIGHT) {
-			cout << "right button" << endl;
 			if (neck_id < 100 && m_joint_affected[neck_id]) {
-				cout << "selected " << endl;
 				JointNode * jn = (JointNode *)m_node_lookup[neck_id]; // get the joint
 				double current_y = m_jointTransforms[neck_id].front().current_y;
 				mat4 trans = m_jointTransforms[neck_id].front().trans_matrix;
@@ -849,8 +841,19 @@ bool A3::mouseButtonInputEvent (
 		if (!ImGui::IsMouseHoveringAnyWindow()) {
 			mouse_down = true;
 			if (m_mode == J && m_button == GLFW_MOUSE_BUTTON_LEFT ) {
+				m_select_mode = true;
+				uploadCommonSceneUniforms();
+				glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+				draw();
+				CHECK_GL_ERRORS;
 				uint8_t *pixel_color = new uint8_t[3];
-				glReadPixels(ImGui::GetIO().MousePos.x, m_framebufferHeight - ImGui::GetIO().MousePos.y,
+				glReadBuffer( GL_BACK );
+				double xpos, ypos;
+				xpos = ImGui::GetIO().MousePos.x;
+				ypos = m_framebufferHeight - ImGui::GetIO().MousePos.y;
+				ypos *= double(m_framebufferHeight) / double(m_windowHeight);
+				xpos *= double(m_framebufferWidth) / double(m_windowWidth);
+				glReadPixels(xpos, ypos,
 					1,1,GL_RGB,GL_UNSIGNED_BYTE,(GLvoid*)pixel_color);
 				vec3 color = (1.0f/255.0f)*vec3((float)pixel_color[0], (float)pixel_color[1], (float)pixel_color[2]);
 				int obj_index = getIndexInColorMap(color);
@@ -859,6 +862,7 @@ bool A3::mouseButtonInputEvent (
 				}
 
 				delete [] pixel_color;
+				m_select_mode = false;
 			}
 			if (m_mode == J && (m_button == GLFW_MOUSE_BUTTON_MIDDLE || m_button == GLFW_MOUSE_BUTTON_RIGHT)) {
 				// only push new transformation matrix when there is object selected
@@ -879,7 +883,6 @@ bool A3::mouseButtonInputEvent (
 					int num_matrices_to_pop = stack_cnt - stack_current_index;
 					stack_cnt -= num_matrices_to_pop;
 					JointTransform jt;
-					// cout << "num_matrices_to_pop: " << num_matrices_to_pop << endl;
 					for (std::map<unsigned int, bool>::iterator it=m_joint_affected.begin(); it!=m_joint_affected.end(); ++it) {
 						// before pushing new transform, pop all matrices above current index
 						for (int i = 0; i < num_matrices_to_pop; i++) {
@@ -1022,5 +1025,6 @@ void A3::selectChildrenRec (const SceneNode & root) {
 void A3::createColorMap () {
 	for (int i = 0; i < (*m_rootNode).totalSceneNodes(); i++) {
 		m_color_map[i] = (1.0f/255.0f)*vec3(rand() % 254 + 1, rand() % 254 + 1, rand() % 254 + 1);
+		cout << "m_color_map["<<i<<"]: " << m_color_map[i] << endl;
 	}
 }
