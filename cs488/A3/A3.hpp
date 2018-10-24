@@ -115,7 +115,6 @@ protected:
 	int getIndexInColorMap (glm::vec3 color);
 	void extractRootTransMatrices();
 	void selectNodes (int node_index);
-	void selectChildrenRec (const SceneNode & root);
 	std::list<JointPointer> jointPointers;
 	// node id as key, node pointer as value
 	std::map<unsigned int, SceneNode *> m_node_lookup;
@@ -127,7 +126,6 @@ protected:
 	void initJointTransformsRec(const SceneNode & root);
 	void initNodeLookupRec(SceneNode & root);
 	void showUI() ;
-	//void initSelectedJointsRec(const SceneNode & root);
 
 	glm::mat4 current_joint_rotation;
 

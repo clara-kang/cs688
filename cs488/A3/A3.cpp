@@ -100,7 +100,9 @@ void A3::init()
 			getAssetFilePath("head.obj"),
 			getAssetFilePath("suzanne.obj"),
 			getAssetFilePath("mustache.obj"),
-			getAssetFilePath("ear.obj")
+			getAssetFilePath("ear.obj"),
+			getAssetFilePath("cylinder.obj"),
+			getAssetFilePath("body.obj")
 	});
 
 
@@ -118,14 +120,8 @@ void A3::init()
 
 	initLightSources();
 
-	//extractRootTransMatrices();
-
 	initJointPointers(*m_rootNode);
 
-	// for(JointPointer jp : jointPointers) {
-	// 	cout << jp.m_nodeId<<endl;
-	// 	cout << endl;
-	// }
 	initNodeLookupRec(*m_rootNode);
 	initJointTransformsRec(*m_rootNode);
 
@@ -190,11 +186,9 @@ void A3::initJointPointers(const SceneNode & root) {
 			// there should be just one child
 			neck_id = root.m_nodeId;
 		}
-		// cout << "joint node found" << endl;
 		const JointNode * jointNode = static_cast<const JointNode *>(&root);
 		for (SceneNode *child : root.children) {
 			if (child->m_nodeType == NodeType::GeometryNode) {
-				// cout << "add joint pointer" << endl;
 				JointPointer jp = {
 					child->m_nodeId,
 					jointNode
@@ -431,16 +425,13 @@ void A3::appLogic()
 	}
 	if ( undo ) {
 		stack_current_index = std::max(stack_current_index - 1, 0);
-		// cout << "stack_current_index: " << stack_current_index << endl;
 		undo = false;
 	}
 	if (redo) {
 		stack_current_index = std::min(stack_current_index + 1, stack_cnt);
-		// cout << "stack_current_index: " << stack_current_index << endl;
 		redo = false;
 	}
 	if ( reset_pos ) {
-		cout << "reset_pos " <<endl;
 		(*m_rootNode).m_translation = root_translation;
 		reset_pos = false;
 	}
@@ -568,7 +559,6 @@ static void updateShaderUniforms(
 			glUniform1f(location, node.material.shininess);
 			CHECK_GL_ERRORS;
 		} else {
-			cout << "in select mode" << endl;
 			vec3 color = m_color_map[node.m_nodeId];
 			location = shader.getUniformLocation("obj_color");
 			if (!m_selected_obj[node.m_nodeId]) {
@@ -608,6 +598,8 @@ void A3::draw() {
 		glCullFace(GL_BACK);
 	} else if ( bculling && fculling ) {
 		glCullFace ( GL_FRONT_AND_BACK );
+	} else {
+		glDisable( GL_CULL_FACE );
 	}
 	renderSceneGraph(*m_rootNode);
 
@@ -641,7 +633,6 @@ void A3::renderSceneGraphRec(const SceneNode & root, const glm::mat4 & modelMatr
 			m_shader_select.enable();
 			glDrawArrays(GL_TRIANGLES, batchInfo.startIndex, batchInfo.numIndices);
 			m_shader_select.disable();
-			cout << "draw arrays" << endl;
 		}
 
 	}
@@ -783,26 +774,19 @@ bool A3::mouseMoveEvent (
 					// get the next angle
 					double next_angle;
 					if (rotate_x_axis == 0) {
-						// cout << "rotation of : " << jn->m_nodeId << ": " << jn->m_joint_y.init << ", max: "
-						// 	<<  jn->m_joint_y.max << ", min: " << jn-> m_joint_y.min << endl;
 						double current_y = m_jointTransforms[it->first].front().current_y;
 						mat4 trans = m_jointTransforms[it->first].front().trans_matrix;
 						next_angle = std::min(jn->m_joint_y.max, current_y + d_rotation);
 						next_angle = std::max(jn->m_joint_y.min, next_angle);
-						// cout << "next_angle: " << next_angle << endl;
-						// change top transformation matrix in joint's stack by change in angle
 						if (next_angle != current_y) {
 							m_jointTransforms[it->first].front().trans_matrix = glm::rotate(trans, (float)(PI*((next_angle - current_y))/180.0f), rotation_axis);
 							(m_jointTransforms[it->first]).front().current_y = next_angle;
 						}
 					} else {
-						// cout << "rotation of : " << jn->m_nodeId << ": " << jn->m_joint_x.init << ", max: "
-						// 	<<  jn->m_joint_x.max << ", min: " << jn-> m_joint_x.min << endl;
 						double current_x = m_jointTransforms[it->first].front().current_x;
 						mat4 trans = m_jointTransforms[it->first].front().trans_matrix;
 						next_angle = std::min(jn->m_joint_x.max, current_x + d_rotation);
 						next_angle = std::max(jn->m_joint_x.min, next_angle);
-						// cout << "next_angle: " << next_angle << endl;
 						if (next_angle != current_x) {
 							m_jointTransforms[it->first].front().trans_matrix = glm::rotate(trans, (float)(PI*((next_angle - current_x))/180.0f), vec3(1.0f, 0.0f, 0.0f));
 							(m_jointTransforms[it->first]).front().current_x = next_angle;
@@ -817,7 +801,6 @@ bool A3::mouseMoveEvent (
 				mat4 trans = m_jointTransforms[neck_id].front().trans_matrix;
 				double next_angle = std::min(jn->m_joint_y.max, current_y + d_rotation);
 				next_angle = std::max(jn->m_joint_y.min, next_angle);
-				// cout << "next_angle: " << next_angle << endl;
 				if (next_angle != current_y) {
 					m_jointTransforms[neck_id].front().trans_matrix = glm::rotate(trans, (float)(PI*((next_angle - current_y))/180.0f), vec3(0.0f, 1.0f, 0.0f));
 					(m_jointTransforms[neck_id]).front().current_y = next_angle;
@@ -913,8 +896,6 @@ bool A3::mouseButtonInputEvent (
 					}
 					stack_cnt ++;
 					stack_current_index ++;
-					// cout << "stack_cnt: " << stack_cnt << endl;
-					// cout << "stack_current_index: " << stack_current_index << endl;
 				}
 			}
 		}
@@ -989,6 +970,18 @@ bool A3::keyInputEvent (
 			reset_joint = true;
 		} else if (key == GLFW_KEY_A) {
 			reset_all = true;
+		} else if (key == GLFW_KEY_Z) {
+			z_buffer = !z_buffer;
+		} else if (key == GLFW_KEY_B) {
+			bculling = !bculling;
+		} else if (key == GLFW_KEY_F) {
+			fculling = !fculling;
+		} else if (key == GLFW_KEY_C) {
+			draw_circle = !draw_circle;
+		} else if (key == GLFW_KEY_P) {
+			m_mode = PO;
+		} else if (key == GLFW_KEY_J) {
+			m_mode = J;
 		}
 
 	}
@@ -1000,28 +993,8 @@ bool A3::keyInputEvent (
 void A3::selectNodes (int node_index) {
 	for (JointPointer jp : jointPointers) {
 		if (node_index == jp.m_nodeId) {
-			//SceneNode b = *jp.joint;
-			//m_selected_joints.at(&b) = !m_selected_joints.at(&b); // select joint
 			m_joint_affected[jp.joint->m_nodeId] = !m_joint_affected[jp.joint->m_nodeId];
 			m_selected_obj[node_index] = !m_selected_obj[node_index];
-			// for (SceneNode *child : jp.joint->children) {
-			// 	selectChildrenRec(*child); //select all children
-			// }
-		}
-	}
-}
-
-// not used
-void A3::selectChildrenRec (const SceneNode & root) {
-	m_selected_obj[root.m_nodeId] = !m_selected_obj[root.m_nodeId];
-	if (root.m_nodeType == NodeType::JointNode) {
-		//SceneNode b = root;
-		//m_selected_joints.at(&b) = !m_selected_joints.at(&b);
-		m_joint_affected[root.m_nodeId] = !m_joint_affected[root.m_nodeId];
-	}
-	if (root.children.size() > 0) {
-		for (SceneNode *child : root.children) {
-			selectChildrenRec(*child);
 		}
 	}
 }
@@ -1029,6 +1002,5 @@ void A3::selectChildrenRec (const SceneNode & root) {
 void A3::createColorMap () {
 	for (int i = 0; i < (*m_rootNode).totalSceneNodes(); i++) {
 		m_color_map[i] = (1.0f/255.0f)*vec3(rand() % 254 + 1, rand() % 254 + 1, rand() % 254 + 1);
-		cout << "m_color_map["<<i<<"]: " << m_color_map[i] << endl;
 	}
 }
