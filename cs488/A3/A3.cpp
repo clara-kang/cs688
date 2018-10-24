@@ -61,7 +61,11 @@ A3::A3(const std::string & luaSceneFile)
 		m_select_mode(false),
 		root_translation(mat4(1.0f)),
 		root_rotation(mat4(1.0f)),
-		current_joint_rotation(mat4(1.0f))
+		current_joint_rotation(mat4(1.0f)),
+		mouse_down(false),
+		m_left_button(false),
+		m_right_button(false),
+		m_middle_button(false)
 {
 
 }
@@ -730,6 +734,9 @@ bool A3::mouseMoveEvent (
 		(*m_rootNode).m_translation = M;
 	}
 	if (m_right_button && mouse_down && m_mode == PO) {
+		double xpos, ypos;
+		xPos *= double(m_framebufferWidth) / double(m_windowWidth);
+		yPos *= double(m_framebufferHeight) / double(m_windowHeight);
 		if (aspect >= 1.0f) {
 			x = (xPos - m_framebufferWidth/2.0f) * 4.0f * aspect/m_framebufferWidth;
 			y = (-yPos + m_framebufferHeight/2.0f) * 4.0f/m_framebufferHeight;
