@@ -764,7 +764,7 @@ bool A3::mouseMoveEvent (
 			rotation_axis = vec3(0.0f, 1.0f, 0.0f);
 			d_rotation = -ImGui::GetIO().MouseDelta.y * ROTATION_SCALE_FACTOR;
 		}
-		if (m_button == GLFW_MOUSE_BUTTON_MIDDLE) {
+		if (m_middle_button) {
 			for (std::map<unsigned int, bool>::iterator it=m_joint_affected.begin(); it!=m_joint_affected.end(); ++it) {
 				if (it->second) { // If the joint is affected
 					if (it->first == neck_id) {
