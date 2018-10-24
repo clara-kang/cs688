@@ -923,7 +923,7 @@ bool A3::mouseButtonInputEvent (
 	if ( actions == GLFW_RELEASE ) {
 		switch (button) {
 			case GLFW_MOUSE_BUTTON_LEFT:
-				m_left_button = true;
+				m_left_button = false;
 				break;
 			case GLFW_MOUSE_BUTTON_RIGHT:
 				m_right_button = false;
