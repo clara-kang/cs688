@@ -1,4 +1,4 @@
--- puppet.lua
+-- cat.lua
 -- A simplified puppet without posable joints, but that
 -- looks roughly humanoid.
 
@@ -7,11 +7,10 @@ rootnode:rotate('y', -45.0)
 rootnode:scale( 0.25, 0.25, 0.25 )
 rootnode:translate(0.0, 0.0, -1.0)
 
-red = gr.material({1.0, 0.0, 0.0}, {0.1, 0.1, 0.1}, 10)
-blue = gr.material({0.0, 0.0, 1.0}, {0.1, 0.1, 0.1}, 10)
-green = gr.material({0.0, 1.0, 0.0}, {0.1, 0.1, 0.1}, 10)
-white = gr.material({1.0, 1.0, 1.0}, {0.1, 0.1, 0.1}, 10)
-orange = gr.material({1.0, 0.6, 0.2}, {0.1, 0.1, 0.1}, 10)
+pink = gr.material({1.0, 0.37, 0.37}, {0.8, 0.8, 0.8}, 10)
+white = gr.material({1.0, 1.0, 1.0}, {0.8, 0.8, 0.8}, 10)
+orange = gr.material({1.0, 0.6, 0.2}, {0.8, 0.48, 0.16}, 10)
+black = gr.material({0.0, 0.0, 0.0}, {0.4, 0.4, 0.4}, 10)
 
 torso = gr.node('torso')
 rootnode:add_child(torso)
@@ -22,14 +21,28 @@ torsoMesh:set_material(orange)
 torsoMesh:scale(0.5,0.6,0.6)
 torsoMesh:translate(0.0,0.3,0.0)
 
+neckJointPP = gr.node('neckJointPP')
+neckJointPP:rotate('x', 90)
+neckJointPP:translate(0.0, 0.6, 0.0)
+torso:add_child(neckJointPP)
+
+neckJointP = gr.joint('neckJointP', {0.0, 0.0, 0.0}, {-40.0, 0.0, 40.0})
+neckJointPP:add_child(neckJointP)
+
+neckJointII = gr.node('neckJointII')
+neckJointII:rotate('x', -90)
+neckJointII:translate(0.0, 0.6, 0.0)
+neckJointP:add_child(neckJointII)
+
 neckJoint = gr.joint('neckJoint', {0.0, 0.0, 0.0}, {-70.0, 0.0, 70.0})
-torso:add_child(neckJoint)
-neckJoint:translate(0.0, 0.6, 0.0)
+neckJointII:add_child(neckJoint)
+neckJoint:translate(0.0, 0.3, -0.5)
 
 head = gr.mesh('head', 'head')
 neckJoint:add_child(head)
 head:scale(0.4, 0.4, 0.4)
-head:translate(0.0, 0.3, 0.0)
+-- head:rotate('x', -90)
+--head:translate(0.0, 0.0, -0.3)
 head:set_material(orange)
 
 leftEye = gr.mesh('sphere', 'leftEye')
@@ -38,11 +51,36 @@ leftEye:scale(0.4,0.5,0.4)
 leftEye:translate(-0.2, 0.1, 0.23)
 leftEye:set_material(white)
 
-rightEye = gr.mesh('sphere', 'rightEye')
+leftEyeBall = gr.mesh('sphere', 'leftEye')
+leftEye:add_child(leftEyeBall)
+leftEyeBall:scale(0.15,0.15,0.15)
+leftEyeBall:translate(0.0, 0.15, 1.0)
+leftEyeBall:set_material(black)
+
+rightEye = gr.mesh('sphere', 'rightEyeBall')
 head:add_child(rightEye)
 rightEye:scale(0.4,0.5,0.4)
 rightEye:translate(0.2, 0.1, 0.23)
 rightEye:set_material(white)
+
+rightEyeBall = gr.mesh('sphere', 'rightEyeBall')
+rightEye:add_child(rightEyeBall)
+rightEyeBall:scale(0.15,0.15,0.15)
+rightEyeBall:translate(0.0, 0.15, 1.0)
+rightEyeBall:set_material(black)
+
+nose = gr.mesh('sphere', 'nose')
+nose:scale(0.1,0.1,0.1)
+nose:translate(0.0,0.0,0.7)
+nose:set_material(pink)
+head:add_child(nose)
+
+tooth = gr.mesh('cube', 'tooth')
+tooth:scale(0.9,0.45,0.4)
+tooth:rotate('x',12)
+tooth:translate(0.0,-0.45,0.25)
+tooth:set_material(white)
+head:add_child(tooth)
 
 mustache = gr.mesh('mustache', 'mustache')
 head:add_child(mustache)
@@ -50,27 +88,39 @@ head:add_child(mustache)
 --mustache:translate(0.0, 0.9, 0.0)
 mustache:set_material(white)
 
+leftEarJoint = gr.joint('leftEarJoint',{0.0,0.0,0.0},{-60.0,0.0,0.0})
+leftEarJoint:translate(-0.4,0.5,0.0)
+head:add_child(leftEarJoint)
+
 leftEar = gr.mesh('ear', 'leftEar')
-head:add_child(leftEar)
+leftEarJoint:add_child(leftEar)
 leftEar:rotate('z', 15.0)
-leftEar:translate(0.0, 0.0, 0.0)
+leftEar:translate(0.4, -0.5, 0.4)
 leftEar:set_material(orange)
 
+rightEarJoint = gr.joint('rightEarJoint',{0.0,0.0,0.0},{0.0,0.0,60.0})
+rightEarJoint:translate(0.4,0.5,0.0)
+head:add_child(rightEarJoint)
+
 rightEar = gr.mesh('ear', 'rightEar')
-head:add_child(rightEar)
+rightEarJoint:add_child(rightEar)
 rightEar:rotate('z', -15.0)
-rightEar:translate(0.7, -0.2, 0.0)
+rightEar:translate(0.2, -0.7, 0.4)
 rightEar:set_material(orange)
 
+leftArmJointP = gr.node('leftArmJointP')
+leftArmJointP:rotate('z',90)
+leftArmJointP:translate(-0.28, 0.40, 0.0)
+torso:add_child(leftArmJointP)
+
 leftArmJoint = gr.joint('leftArmJoint',{0.0,0.0,0.0},{-60.0,0.0,60.0})
-torso:add_child(leftArmJoint)
-leftArmJoint:rotate('y', 180);
-leftArmJoint:rotate('z', -30);
-leftArmJoint:translate(-0.28, 0.40, 0.0)
+leftArmJointP:add_child(leftArmJoint)
+--leftArmJoint:rotate('z',60)
 
 leftArm = gr.mesh('cylinder', 'leftArm')
-leftArm:scale(0.08, 0.3, 0.08)
-leftArm:translate(0.0, -0.22, 0.0)
+leftArm:scale(0.08, 0.15, 0.08)
+leftArm:rotate('z',60)
+leftArm:translate(-0.1, 0.05, 0.0)
 leftArm:set_material(orange)
 leftArmJoint:add_child(leftArm)
 
@@ -79,12 +129,28 @@ leftShoulder:scale(0.1,0.1,0.1)
 leftShoulder:set_material(orange)
 leftArmJoint:add_child(leftShoulder)
 
+leftElbowJoint = gr.joint('leftElbowJoint',{0.0,0.0,0.0},{0.0,0.0,60.0})
+leftArmJoint:add_child(leftElbowJoint)
+leftElbowJoint:translate(-0.28,0.15, 0.0)
+
+leftElbow = gr.mesh('sphere', 'leftElbow')
+leftElbow:scale(0.08,0.08,0.08)
+leftElbow:set_material(orange)
+leftElbowJoint:add_child(leftElbow)
+
+leftLowArm = gr.mesh('cylinder', 'leftLowArm')
+leftLowArm:scale(1.0,1.8,1.0)
+leftLowArm:rotate('z',60)
+leftLowArm:translate(-1.5, 0.8, 0.0)
+leftLowArm:set_material(orange)
+leftElbow:add_child(leftLowArm)
+
 leftWristJointP = gr.node('leftWristJointP')
 leftWristJointP:rotate('x',90)
-leftWristJointP:translate(0.0, -0.55, 0.0)
-leftArmJoint:add_child(leftWristJointP)
+leftWristJointP:translate(-0.2, 0.1, 0.0)
+leftElbowJoint:add_child(leftWristJointP)
 
-leftWristJoint = gr.joint('leftWristJoint',{0.0,0.0,0.0},{-45.0,0.0,45.0})
+leftWristJoint = gr.joint('leftWristJoint',{0.0,0.0,0.0},{-30.0,0.0,45.0})
 leftWristJointP:add_child(leftWristJoint)
 
 leftWrist = gr.mesh('sphere', 'leftWrist')
@@ -93,8 +159,9 @@ leftWrist:set_material(orange)
 leftWristJoint:add_child(leftWrist)
 
 lefthand = gr.mesh('sphere', 'hand')
-lefthand:scale(0.08,0.15,0.15)
-lefthand:translate(0.0,0.0,0.2)
+lefthand:scale(0.15,0.15,0.08)
+lefthand:rotate('y', -30)
+lefthand:translate(-0.15,0.0,-0.07)
 lefthand:set_material(orange)
 leftWristJoint:add_child(lefthand)
 
@@ -151,15 +218,18 @@ leftAnkle:add_child(leftFoot)
 
 -- right part
 
+rightArmJointP = gr.node('rightArmJointP')
+rightArmJointP:rotate('z',90)
+rightArmJointP:translate(0.28, 0.40, 0.0)
+torso:add_child(rightArmJointP)
+
 rightArmJoint = gr.joint('rightArmJoint',{0.0,0.0,0.0},{-60.0,0.0,60.0})
-torso:add_child(rightArmJoint)
-rightArmJoint:rotate('y', 180);
-rightArmJoint:rotate('z', 30);
-rightArmJoint:translate(0.28, 0.40, 0.0)
+rightArmJointP:add_child(rightArmJoint)
 
 rightArm = gr.mesh('cylinder', 'rightArm')
-rightArm:scale(0.08, 0.3, 0.08)
-rightArm:translate(0.0, -0.22, 0.0)
+rightArm:scale(0.08, 0.15, 0.08)
+rightArm:rotate('z',-60)
+rightArm:translate(-0.1, -0.05, 0.0)
 rightArm:set_material(orange)
 rightArmJoint:add_child(rightArm)
 
@@ -168,12 +238,28 @@ rightShoulder:scale(0.1,0.1,0.1)
 rightShoulder:set_material(orange)
 rightArmJoint:add_child(rightShoulder)
 
-rightWristJointP = gr.node('rightWristJointP')
-rightWristJointP:rotate('x',90)
-rightWristJointP:translate(0.0, -0.55, 0.0)
-rightArmJoint:add_child(rightWristJointP)
+rightElbowJoint = gr.joint('rightElbowJoint',{0.0,0.0,0.0},{0.0,0.0,60.0})
+rightArmJoint:add_child(rightElbowJoint)
+rightElbowJoint:translate(-0.28,-0.15, 0.0)
 
-rightWristJoint = gr.joint('rightWristJoint',{0.0,0.0,0.0},{-45.0,0.0,45.0})
+rightElbow = gr.mesh('sphere', 'rightElbow')
+rightElbow:scale(0.08,0.08,0.08)
+rightElbow:set_material(orange)
+rightElbowJoint:add_child(rightElbow)
+
+rightLowArm = gr.mesh('cylinder', 'rightLowArm')
+rightLowArm:scale(1.0,1.8,1.0)
+rightLowArm:rotate('z',-60)
+rightLowArm:translate(-1.5, -0.8, 0.0)
+rightLowArm:set_material(orange)
+rightElbow:add_child(rightLowArm)
+
+rightWristJointP = gr.node('rightWristJointP')
+rightWristJointP:rotate('x',-90)
+rightWristJointP:translate(-0.2, -0.1, 0.0)
+rightElbowJoint:add_child(rightWristJointP)
+
+rightWristJoint = gr.joint('rightWristJoint',{0.0,0.0,0.0},{-30.0,0.0,45.0})
 rightWristJointP:add_child(rightWristJoint)
 
 rightWrist = gr.mesh('sphere', 'rightWrist')
@@ -182,8 +268,9 @@ rightWrist:set_material(orange)
 rightWristJoint:add_child(rightWrist)
 
 righthand = gr.mesh('sphere', 'hand')
-righthand:scale(0.08,0.15,0.15)
-righthand:translate(0.0,0.0,0.2)
+righthand:scale(0.15,0.15,0.08)
+righthand:rotate('y', -30)
+righthand:translate(-0.15,0.0,-0.07)
 righthand:set_material(orange)
 rightWristJoint:add_child(righthand)
 

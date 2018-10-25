@@ -35,6 +35,7 @@ static bool fculling = false;
 static int rotate_x_axis = 0;
 
 static unsigned int neck_id = 10000;
+static unsigned int neck_p_id = 10000;
 static int stack_cnt = 0;
 static int stack_current_index = 0;
 const size_t CIRCLE_PTS = 48;
@@ -189,6 +190,8 @@ void A3::initJointPointers(const SceneNode & root) {
 		if (root.m_name == "neckJoint") {
 			// there should be just one child
 			neck_id = root.m_nodeId;
+		} else if (root.m_name == "neckJointP") {
+			neck_p_id = root.m_nodeId;
 		}
 		const JointNode * jointNode = static_cast<const JointNode *>(&root);
 		for (SceneNode *child : root.children) {
@@ -454,6 +457,9 @@ void A3::appLogic()
 		reset_pos = true;
 		reset_rot = true;
 		reset_joint = true;
+		bculling = true;
+		fculling = false;
+		draw_circle = false;
 		reset_all = false;
 	}
 }
@@ -554,7 +560,11 @@ static void updateShaderUniforms(
 			CHECK_GL_ERRORS;
 			location = shader.getUniformLocation("material.ks");
 			vec3 ks = node.material.ks;
-			glUniform3fv(location, 1, value_ptr(ks));
+			if (m_selected_obj[node.m_nodeId]) {
+					glUniform3fv(location, 1, value_ptr(vec3(0.5f,0.5f,0.5f)));
+			} else {
+					glUniform3fv(location, 1, value_ptr(kd));
+			}
 			CHECK_GL_ERRORS;
 			location = shader.getUniformLocation("material.shininess");
 			glUniform1f(location, node.material.shininess);
@@ -1025,6 +1035,10 @@ void A3::selectNodes (int node_index) {
 		if (node_index == jp.m_nodeId) {
 			m_joint_affected[jp.joint->m_nodeId] = !m_joint_affected[jp.joint->m_nodeId];
 			m_selected_obj[node_index] = !m_selected_obj[node_index];
+			if (jp.joint->m_nodeId == neck_id) {
+				cout << "neck parent selected " << endl;
+				m_joint_affected[neck_p_id] = !m_joint_affected[neck_p_id];
+			}
 		}
 	}
 }
