@@ -88,6 +88,9 @@ bool Mesh::intersectTriangle(vec3 eye, vec3 ray_dir, double *t, Triangle triangl
 	}
 	double detT = glm::determinant(mat3(col1, col2, X));
 	*t = detT / detA;
-	*n = glm::normalize(glm::cross(col1, col2));
-	return true;
+	if (*t > 0) {
+		*n = glm::normalize(glm::cross(col1, col2));
+		return true;
+	}
+	return false;
 }

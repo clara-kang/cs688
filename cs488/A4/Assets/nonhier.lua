@@ -30,8 +30,8 @@ s4:set_material(mat3)
 s5 = gr.nh_sphere('s5', {0, 100, -250}, 25)
 scene_root:add_child(s5)
 s5:set_material(mat1)
---
--- -- A small stellated dodecahedron.
+
+-- A small stellated dodecahedron.
 
 steldodec = gr.mesh( 'dodec', 'smstdodeca.obj' )
 steldodec:set_material(mat3)

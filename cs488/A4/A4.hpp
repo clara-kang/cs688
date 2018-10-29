@@ -5,6 +5,7 @@
 #include <glm/glm.hpp>
 
 #include "SceneNode.hpp"
+#include "GeometryNode.hpp"
 #include "Light.hpp"
 #include "Image.hpp"
 
@@ -52,3 +53,14 @@ glm::vec3 getColor (
 	const std::list<Light *> & lights,
 	const vec3 & ray_dir,
 	Material *material);
+
+void A4_Render_pixel_rec(
+		// What to render
+		SceneNode * root,
+		// Viewing parameters
+		const glm::vec3 & start,
+		const glm::vec3 & ray_dir,
+		double *t,
+		vec3 *n,
+		GeometryNode **obj
+);
