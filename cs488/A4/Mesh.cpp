@@ -15,6 +15,7 @@ using namespace glm;
 Mesh::Mesh( const std::string& fname )
 	: m_vertices()
 	, m_faces()
+	, m_bounding_sphere(NonhierSphere(vec3(0.0,0.0,0.0), 1.0))
 {
 	std::string code;
 	double vx, vy, vz;
@@ -30,6 +31,7 @@ Mesh::Mesh( const std::string& fname )
 			m_faces.push_back( Triangle( s1 - 1, s2 - 1, s3 - 1 ) );
 		}
 	}
+	computeBoundingSphere();
 }
 
 std::ostream& operator<<(std::ostream& out, const Mesh& mesh)
@@ -57,16 +59,18 @@ bool Mesh::intersect(vec3 eye, vec3 ray_dir, double *t, vec3 *n){
 	double t_test;
 	vec3 normal;
 	*t = HUGE_VAL;
-	for (Triangle triangle: m_faces) {
-		if (intersectTriangle(eye, ray_dir, &t_test, triangle, &normal)) {
-			if (t_test < *t) {
-				*t = t_test;
-				*n = normal;
+	if (m_bounding_sphere.intersect(eye, ray_dir, &t_test, &normal)) {
+		for (Triangle triangle: m_faces) {
+			if (intersectTriangle(eye, ray_dir, &t_test, triangle, &normal)) {
+				if (t_test < *t) {
+					*t = t_test;
+					*n = normal;
+				}
 			}
 		}
-	}
-	if (*t < HUGE_VAL) {
-		return true;
+		if (*t < HUGE_VAL) {
+			return true;
+		}
 	}
 	return false;
 }
@@ -93,4 +97,19 @@ bool Mesh::intersectTriangle(vec3 eye, vec3 ray_dir, double *t, Triangle triangl
 		return true;
 	}
 	return false;
+}
+
+void Mesh::computeBoundingSphere() {
+	vec3 center = vec3(0.0,0.0,0.0);
+	for (vec3 vertex : m_vertices) {
+		center += vertex;
+	}
+	center = center / m_vertices.size();
+	double radius = 0.0;
+	for (vec3 vertex : m_vertices) {
+		double dist = glm::length(center - vertex);
+		radius = std::fmax(radius, dist);
+	}
+	m_bounding_sphere.m_pos = center;
+	m_bounding_sphere.m_radius = radius;
 }

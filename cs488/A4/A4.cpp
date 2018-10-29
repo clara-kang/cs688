@@ -98,6 +98,8 @@ void A4_Render_pixel_rec(
 		glm::mat4 T_n,
 		GeometryNode ** obj
 ) {
+	// cout << "node: " << root->m_name << endl;
+	// cout << glm::to_string(root->trans) << endl;;
 	mat4 T_new = root->invtrans * T;
 	mat4 T_n_new = T_n * root->trans;
 	if ( root -> m_nodeType == NodeType::GeometryNode ){
@@ -149,7 +151,6 @@ glm::vec3 getColor (
 					// Specular
 					vec3 half = glm::normalize(to_light_dir - ray_dir);
 					double normal_dot_half = glm::dot(n_normal, half);
-					cout << " mat->m_shininess: " <<  mat->m_shininess << endl;
 					color += mat->m_ks * pow(normal_dot_half, mat->m_shininess);
 				} else {
 					// cout << "t: " << t << endl;

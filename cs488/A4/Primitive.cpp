@@ -17,9 +17,17 @@ Primitive::~Primitive()
 Sphere::~Sphere()
 {
 }
+bool Sphere::intersect(vec3 eye, vec3 ray_dir, double *t, vec3 *n) {
+  NonhierSphere ns (vec3(0.0,0.0,0.0), 1.0);
+  return ns.intersect(eye, ray_dir, t, n);
+}
 
 Cube::~Cube()
 {
+}
+bool Cube::intersect(vec3 eye, vec3 ray_dir, double *t, vec3 *n) {
+  NonhierBox nb (vec3(0.0,0.0,0.0), 1.0);
+  return nb.intersect(eye, ray_dir, t, n);
 }
 
 NonhierSphere::~NonhierSphere()

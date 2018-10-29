@@ -14,13 +14,16 @@ public:
 class Sphere : public Primitive {
 public:
   virtual ~Sphere();
-  bool intersect(vec3 eye, vec3 ray_dir, double *t) {return true;}
+  bool intersect(vec3 eye, vec3 ray_dir, double *t, vec3 *n);
+private:
+  glm::vec3 m_pos;
+  double m_radius;
 };
 
 class Cube : public Primitive {
 public:
   virtual ~Cube();
-  bool intersect(vec3 eye, vec3 ray_dir, double *t) {return true;}
+  bool intersect(vec3 eye, vec3 ray_dir, double *t, vec3 *n);
 };
 
 class NonhierSphere : public Primitive {
@@ -32,7 +35,7 @@ public:
   virtual ~NonhierSphere();
   bool intersect(vec3 eye, vec3 ray_dir, double *t, vec3 *n);
 
-private:
+// private:
   glm::vec3 m_pos;
   double m_radius;
 };
