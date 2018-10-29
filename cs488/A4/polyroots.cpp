@@ -59,13 +59,13 @@
 **
  * Revision 2.0  88/04/29  16:07:19  gem
  * *** empty log message ***
- * 
+ *
  * Revision 1.4  88/04/28  12:42:51  jamie
  * *** empty log message ***
- * 
+ *
  * Revision 1.3  88/02/01  18:41:46  jamie
  * Total rewrite to improve speed and stability.
- * 
+ *
 */
 
 /* Imports */
@@ -74,7 +74,7 @@
 
 /* Forward declarations */
 double sink_lookup(double), cosk_lookup(double);
-static double PolishRoot( 
+static double PolishRoot(
 	size_t degree, double A, double B, double C, double D, double root );
 #define fabs(x) ( ((x) > 0) ? x : -x )
 
@@ -85,7 +85,7 @@ static double PolishRoot(
 #define SIGN(x) (((x) < 0) ? -1 : 1)
 
 /*
- * Hack together a Windows equivalent for cube root.  It's defined 
+ * Hack together a Windows equivalent for cube root.  It's defined
  * in Linux.  This is probably not the best way to implement the cube
  * root function.
  */
@@ -93,7 +93,7 @@ static double PolishRoot(
 static double cbrt( double t )
 {
 	return pow( t, 1.0/3.0 );
-}	
+}
 #endif
 
 /*
@@ -112,7 +112,7 @@ size_t quadraticRoots( double A, double B, double C, double roots[2] )
 	if( A == 0 ) {
 		if( B == 0 ) {
 			return 0;
-		} else {	
+		} else {
 			roots[0] = -C/B;
 			return 1;
 		}
@@ -153,7 +153,7 @@ size_t cubicRoots( double p, double q, double r, double roots[3] )
   v = r - p*q/3 + 2*p*p*p/27;
 
   /* Better stability could be gained by expanded out the expression
-  ** for w in terms of p,q and r and summing in increasing order of 
+  ** for w in terms of p,q and r and summing in increasing order of
   ** magnitude.  For now, we won't bother.
   */
   w = (4*u*u*u)/27 + v*v;
@@ -172,7 +172,7 @@ size_t cubicRoots( double p, double q, double r, double roots[3] )
     s = sqrt( -u / 3 );
     if (s != 0) {
       t = -v / (2.0 * s*s*s);
-#ifdef TABLE_LOOKUP      
+#ifdef TABLE_LOOKUP
       cosk = cosk_lookup( t  );
       sink = sink_lookup( t );
 #else
@@ -198,7 +198,7 @@ size_t cubicRoots( double p, double q, double r, double roots[3] )
 **            CS-86-56,  November, 1986
 */
 /* Coefficients :  x^4 + C[0] x^3  + C[1] x^2 + C[2] x  + C[3] */
-size_t quarticRoots( 
+size_t quarticRoots(
 	double a, double b, double c, double d, double roots[4] )
 {
 	double h,h1,h2,H,   g,g1,g2,G, n, m, en, em, y;
@@ -251,12 +251,12 @@ size_t quarticRoots(
 		en = b*b + 2.*fabs(b*y) + y*y + 4*fabs(d);
 		em = a*a + 4.*fabs(y);
 		if( m*en > n*em ) {		/* use m */
-			if( m <= 0 ) { 
-				return 0; 
+			if( m <= 0 ) {
+				return 0;
 			}
 			h2 = sqrt(m);
-			if( h2 == 0 ) { 
-				return 0; 
+			if( h2 == 0 ) {
+				return 0;
 			}
 			g2 = (a*h1 - c) / h2;
 			h2 /= 2.0;
@@ -265,8 +265,8 @@ size_t quarticRoots(
 				return 0;
 			}
 			g2 = sqrt(n);
-			if (g2 == 0) { 
-				return 0; 
+			if (g2 == 0) {
+				return 0;
 			}
 			h2 = (a*( (b-y)/2.0) - c) / g2;
 			g2 /= 2.0;
@@ -312,11 +312,11 @@ size_t quarticRoots(
 
 /*  Polish a monic polynomial root by Newton-Raphson iteration */
 /* degree <= 4; c[] has 'degree' values. */
-static double PolishRoot( 
+static double PolishRoot(
 	size_t degree, double A, double B, double C, double D, double root )
 {
 	size_t i, j;
-	double x, y, dydx, dx, lastx = HUGE, lasty = HUGE;
+	double x, y, dydx, dx, lastx = HUGE_VAL, lasty = HUGE_VAL;
 	double cs[4] = { A, B, C, D };
 
 	x = root;
@@ -570,14 +570,14 @@ static double cosk_lookup(double t)
 
   if (t > .999999) 		/* Asymtotic forms */
     return (8.0 + t) / 9.0;
-  if (t < -.99999)		
+  if (t < -.99999)
     return (1 + sqrt(t+1.)/3.0)/2.0;
 
   /* Use linear interpolation between table entries. */
 
   /* convert t to a table index */
            /* Table is 1025 elements long with a delta of 1/512 */
-  tprime = ((t+1.0)*512); 
+  tprime = ((t+1.0)*512);
   it = (int) tprime;
 
   /* Use linear interpolation between table entries. */
@@ -802,10 +802,10 @@ static double sink_lookup(double t)
     };
   if (t > .999999) 		/* Asymtotic forms */
     return sqrt(2.0*(1.0 - t)/9.0);
-  if (t < -.99999)		
+  if (t < -.99999)
     return ( SQRT3 - sqrt(2.0*(t+1))/3.0)/2.0;
-    
-    
+
+
   /* convert t to a table index */
            /* Table is 1025 elements long with a delta of 1/512 */
   tprime = ((t+1.0)*512);
@@ -859,7 +859,7 @@ static double sink_lookup(double t)
 #endif
 extern double  sqrt( double x );
 extern double  cbrt( double x );
-extern double cos( double x ); 
+extern double cos( double x );
 extern double acos( double x );
 
 /* epsilon surrounding for near zero values */

@@ -4,6 +4,10 @@
 #include <fstream>
 
 #include <glm/ext.hpp>
+#include <glm/gtx/string_cast.hpp>
+
+using namespace std;
+using namespace glm;
 
 // #include "cs488-framework/ObjFileDecoder.hpp"
 #include "Mesh.hpp"
@@ -32,7 +36,7 @@ std::ostream& operator<<(std::ostream& out, const Mesh& mesh)
 {
   out << "mesh {";
   /*
-  
+
   for( size_t idx = 0; idx < mesh.m_verts.size(); ++idx ) {
   	const MeshVertex& v = mesh.m_verts[idx];
   	out << glm::to_string( v.m_position );
@@ -47,4 +51,43 @@ std::ostream& operator<<(std::ostream& out, const Mesh& mesh)
 */
   out << "}";
   return out;
+}
+
+bool Mesh::intersect(vec3 eye, vec3 ray_dir, double *t, vec3 *n){
+	double t_test;
+	vec3 normal;
+	*t = HUGE_VAL;
+	for (Triangle triangle: m_faces) {
+		if (intersectTriangle(eye, ray_dir, &t_test, triangle, &normal)) {
+			if (t_test < *t) {
+				*t = t_test;
+				*n = normal;
+			}
+		}
+	}
+	if (*t < HUGE_VAL) {
+		return true;
+	}
+	return false;
+}
+
+bool Mesh::intersectTriangle(vec3 eye, vec3 ray_dir, double *t, Triangle triangle, vec3 *n) {
+	vec3 col1 = m_vertices.at(triangle.v1) - m_vertices.at(triangle.v2);
+	vec3 col2 = m_vertices.at(triangle.v1) - m_vertices.at(triangle.v3);
+	vec3 X = m_vertices.at(triangle.v1) - eye;
+	double detA = glm::determinant(mat3(col1, col2, ray_dir));
+	double detBeta = glm::determinant(mat3(X, col2, ray_dir));
+	double beta = detBeta / detA;
+	if (beta < 0 || beta > 1) {
+		return false;
+	}
+	double detGamma = glm::determinant(mat3(col1, X, ray_dir));
+	double gamma = detGamma / detA;
+	if (gamma < 0 || gamma > 1-beta) {
+		return false;
+	}
+	double detT = glm::determinant(mat3(col1, col2, X));
+	*t = detT / detA;
+	*n = glm::normalize(glm::cross(col1, col2));
+	return true;
 }

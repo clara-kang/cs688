@@ -27,10 +27,13 @@ struct Triangle
 class Mesh : public Primitive {
 public:
   Mesh( const std::string& fname );
-  
+	bool intersect(vec3 eye, vec3 ray_dir, double *t, vec3 *n);
+
 private:
 	std::vector<glm::vec3> m_vertices;
 	std::vector<Triangle> m_faces;
 
     friend std::ostream& operator<<(std::ostream& out, const Mesh& mesh);
+
+	bool intersectTriangle(vec3 eye, vec3 ray_dir, double *t, Triangle triangle, vec3 *n);
 };
