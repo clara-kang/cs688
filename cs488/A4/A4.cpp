@@ -138,7 +138,13 @@ glm::vec3 getColor (
 				A4_Render_pixel_rec (root, start, to_light_dir, &t, &n, &node);
 
 				if (t == HUGE_VAL) {
+					// diffuse
 					color += light->colour * mat->m_kd * normal_dot_light;
+					// Specular
+					vec3 half = glm::normalize(to_light_dir - ray_dir);
+					double normal_dot_half = glm::dot(normal, half);
+					cout << " mat->m_shininess: " <<  mat->m_shininess << endl;
+					color += mat->m_ks * pow(normal_dot_half, mat->m_shininess);
 				} else {
 					// cout << "t: " << t << endl;
 					// cout << "in shadow" << endl;
