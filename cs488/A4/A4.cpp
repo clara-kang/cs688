@@ -70,7 +70,7 @@ void A4_Render_rec(
 					pixsize_over_d + view;
 				ray_dir = glm::normalize(ray_dir);
 				t = HUGE_VAL;
-				A4_Render_pixel_rec (root, eye, ray_dir, &t, &normal, &obj);
+				A4_Render_pixel_rec (root, eye, ray_dir, &t, &normal, mat4(1.0), mat4(1.0), &obj);
 				// if intersect object
 				if (t < HUGE_VAL) {
 						// get color
@@ -94,22 +94,27 @@ void A4_Render_pixel_rec(
 		const glm::vec3 & ray_dir,
 		double *t,
 		vec3 *n,
+		glm::mat4 T,
+		glm::mat4 T_n,
 		GeometryNode ** obj
 ) {
+	mat4 T_new = root->invtrans * T;
+	mat4 T_n_new = T_n * root->trans;
 	if ( root -> m_nodeType == NodeType::GeometryNode ){
 		GeometryNode * gnode = static_cast<GeometryNode *>(root);
 		Primitive *prim = gnode->m_primitive;
 		double t_test = HUGE_VAL;
 		vec3 normal;
-		bool intersect = prim->intersect(start, ray_dir, &t_test, &normal);
+		bool intersect = prim->intersect(vec3(T_new*vec4(start,1.0)),
+			vec3(T_new*vec4(ray_dir,0.0)), &t_test, &normal);
 		if (intersect && t_test < *t) {
 			*t = t_test;
 			*obj = gnode;
-			*n = normal;
+			*n = vec3(T_n_new * vec4(normal,0.0));
 		}
 	}
 	for (SceneNode *child : root->children) {
-		A4_Render_pixel_rec(child, start, ray_dir, t, n, obj);
+		A4_Render_pixel_rec(child, start, ray_dir, t, n, T_new, T_n_new, obj);
 	}
 }
 
@@ -124,25 +129,26 @@ glm::vec3 getColor (
 		PhongMaterial * mat = static_cast<PhongMaterial *>(material);
 		vec3 to_light_dir, start, n;
 		vec3 color = vec3(0.0, 0.0, 0.0);
+		vec3 n_normal = glm::normalize(normal);
 		double normal_light_angle;
 		double t = HUGE_VAL;
 		GeometryNode *node;
 		for (Light *light : lights) {
 			to_light_dir = glm::normalize(light->position - intersection);
 			// test if facing light
-			double normal_dot_light = glm::dot(to_light_dir, normal);
+			double normal_dot_light = glm::dot(to_light_dir, n_normal);
 			if (normal_dot_light > 0) {
 				// test if light is blocked
 				start = intersection + EPSILON*to_light_dir;
 				t = HUGE_VAL;
-				A4_Render_pixel_rec (root, start, to_light_dir, &t, &n, &node);
+				A4_Render_pixel_rec (root, start, to_light_dir, &t, &n, mat4(1.0), mat4(1.0), &node);
 
 				if (t == HUGE_VAL) {
 					// diffuse
 					color += light->colour * mat->m_kd * normal_dot_light;
 					// Specular
 					vec3 half = glm::normalize(to_light_dir - ray_dir);
-					double normal_dot_half = glm::dot(normal, half);
+					double normal_dot_half = glm::dot(n_normal, half);
 					cout << " mat->m_shininess: " <<  mat->m_shininess << endl;
 					color += mat->m_ks * pow(normal_dot_half, mat->m_shininess);
 				} else {
