@@ -45,6 +45,7 @@ public:
   NonhierBox(const glm::vec3& pos, double size)
     : m_pos(pos), m_size(size)
   {
+    m_pos += vec3(0.5,0.5,0.5);
   }
   bool intersect(vec3 eye, vec3 ray_dir, double *t, vec3 *n);
   virtual ~NonhierBox();

@@ -50,15 +50,10 @@ void A4_Render_rec(
 ) {
 
   // Fill in raytracing code here...
-	//if ( root -> m_nodeType == NodeType::GeometryNode ){
-		// GeometryNode * gnode = static_cast<GeometryNode *>(root);
-		// Primitive *prim = gnode->m_primitive;
-		// PhongMaterial * mat = static_cast<PhongMaterial *>(gnode->m_material);
-		//cout << "gnode->m_material: " << glm::to_string(mat->m_kd) << endl;
-		// generate rays
 		vec3 right = glm::normalize(glm::cross(view, up));
 		vec3 ray_dir = vec3(1.0);
 		vec3 normal;
+		vec3 intersection;
 		GeometryNode *obj;
 		double w = image.width();
 		double h = image.height();
@@ -70,12 +65,11 @@ void A4_Render_rec(
 					pixsize_over_d + view;
 				ray_dir = glm::normalize(ray_dir);
 				t = HUGE_VAL;
-				A4_Render_pixel_rec (root, eye, ray_dir, &t, &normal, mat4(1.0), mat4(1.0), &obj);
+				A4_Render_pixel_rec (root, eye, ray_dir, &t, &normal, mat4(1.0), mat4(1.0), &intersection, &obj);
 				// if intersect object
 				if (t < HUGE_VAL) {
 						// get color
-						vec3 intersection = eye + t*ray_dir;
-						vec3 color = getColor(root, intersection, normal,
+						vec3 color = getColor(root, eye+t*ray_dir, normal,
 							ambient, lights, ray_dir, obj->m_material);
 						for (int k = 0; k < 3; k++) {
 								image((uint)i, (uint)j, k) = color[k];
@@ -94,14 +88,13 @@ void A4_Render_pixel_rec(
 		const glm::vec3 & ray_dir,
 		double *t,
 		vec3 *n,
-		glm::mat4 T,
-		glm::mat4 T_n,
+		mat4 T,
+		mat4 T_n,
+		vec3 *intersection,
 		GeometryNode ** obj
 ) {
-	// cout << "node: " << root->m_name << endl;
-	// cout << glm::to_string(root->trans) << endl;;
 	mat4 T_new = root->invtrans * T;
-	mat4 T_n_new = T_n * root->trans;
+	mat4 T_n_new = T_n * glm::transpose(root->invtrans);
 	if ( root -> m_nodeType == NodeType::GeometryNode ){
 		GeometryNode * gnode = static_cast<GeometryNode *>(root);
 		Primitive *prim = gnode->m_primitive;
@@ -112,11 +105,12 @@ void A4_Render_pixel_rec(
 		if (intersect && t_test < *t) {
 			*t = t_test;
 			*obj = gnode;
-			*n = vec3(T_n_new * vec4(normal,0.0));
+			*n = vec3(T_n_new*vec4(normal, 0.0));
+			*intersection = start + t_test*ray_dir;
 		}
 	}
 	for (SceneNode *child : root->children) {
-		A4_Render_pixel_rec(child, start, ray_dir, t, n, T_new, T_n_new, obj);
+		A4_Render_pixel_rec(child, start, ray_dir, t, n, T_new, T_n_new, intersection, obj);
 	}
 }
 
@@ -132,6 +126,7 @@ glm::vec3 getColor (
 		vec3 to_light_dir, start, n;
 		vec3 color = vec3(0.0, 0.0, 0.0);
 		vec3 n_normal = glm::normalize(normal);
+		vec3 i;
 		double normal_light_angle;
 		double t = HUGE_VAL;
 		GeometryNode *node;
@@ -143,7 +138,7 @@ glm::vec3 getColor (
 				// test if light is blocked
 				start = intersection + EPSILON*to_light_dir;
 				t = HUGE_VAL;
-				A4_Render_pixel_rec (root, start, to_light_dir, &t, &n, mat4(1.0), mat4(1.0), &node);
+				A4_Render_pixel_rec (root, start, to_light_dir, &t, &n, mat4(1.0), mat4(1.0), &i, &node);
 
 				if (t == HUGE_VAL) {
 					// diffuse

@@ -62,7 +62,8 @@ void A4_Render_pixel_rec(
 		const glm::vec3 & ray_dir,
 		double *t,
 		vec3 *n,
-		glm::mat4 T,
-		glm::mat4 T_n,
+		mat4 T,
+		mat4 T_n,
+		vec3 *intersection,
 		GeometryNode **obj
 );

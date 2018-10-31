@@ -33,10 +33,10 @@ s:scale(4, 0.6, 0.6)
 s:translate(0, 4, 0)
 
 -- the floor
--- plane = gr.mesh( 'plane', 'plane.obj' )
--- scene:add_child(plane)
--- plane:set_material(grass)
--- plane:scale(30, 30, 30)
+plane = gr.mesh( 'plane', 'plane.obj' )
+scene:add_child(plane)
+plane:set_material(grass)
+plane:scale(30, 30, 30)
 
 -- sphere
 poly = gr.mesh( 'poly', 'dodeca.obj' )
@@ -48,6 +48,6 @@ poly:set_material(blue)
 l1 = gr.light({200,200,400}, {0.8, 0.8, 0.8}, {1, 0, 0})
 l2 = gr.light({0, 5, -20}, {0.4, 0.4, 0.8}, {1, 0, 0})
 
-gr.render(scene, 'hier.png', 256, 256,
+gr.render(scene, 'hier.png', 512, 512,
 	  {0, 0, 0,}, {0, 0, -1}, {0, 1, 0}, 50,
 	  {0.4, 0.4, 0.4}, {l1, l2})
