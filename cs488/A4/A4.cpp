@@ -16,6 +16,7 @@ using namespace std;
 static const char *BG_FILE_NAME = "bg.jpg";
 static const double COLOR_THRESHOLD = 0.01;
 static const double REFLECT_MAX_TIMES = 4;
+static const double RESAMPLE_LEVEL = 4;
 static unsigned char *bg_data;
 
 static const bool ADAPTIVE_SAMPLING = true;
@@ -120,38 +121,59 @@ glm::vec3 A4::A4_sample_one_dir(
 	}
 }
 
-bool A4::A4_pixel_is_edge (int i, int j, Image & samples, vec3 color) {
-	double w = image.width();
-	double h = image.height();
+bool A4::A4_pixel_is_edge (vec3 avg, vec3 color) {
 	bool edge = false;
 	for (int k = 0; k < 3; k++) {
-		// skip if pixel is background
-		if (not_bg_map[(int)(j*w+i)] == true) {
-			double avg = 0.25*(samples((uint)i-1, (uint)j, k)+samples((uint)i+1, (uint)j, k)
-				+samples((uint)i, (uint)j+1, k)+samples((uint)i, (uint)j-1, k));
-			// compute the difference of pixel color to average of neighbors to detect edge
-			if (abs(avg - color[k]) > COLOR_THRESHOLD) {
-				edge = true;
-				break;
-			}
+		// compute the difference of pixel color to average of neighbors to detect edge
+		if (abs(avg[k] - color[k]) > COLOR_THRESHOLD) {
+			edge = true;
+			break;
 		}
+
 	}
 	return edge;
 }
 
+vec3 A4::get_neighbor_pixel_avg(int i, int j, Image & samples) {
+	vec3 avg;
+	for (int k = 0; k < 3; k++) {
+		avg[k] = 0.25*(samples((uint)i-1, (uint)j, k)+samples((uint)i+1, (uint)j, k)
+			+samples((uint)i, (uint)j+1, k)+samples((uint)i, (uint)j-1, k));
+	}
+	return avg;
+}
+
+vec3 A4::recursive_sampling( Image & samples,double i,double j, int level, vec3 avg){
+	vec3 color1 = A4_sample_one_dir((double)i-pow(0.5,level),(double)j-pow(0.5,level),true);
+	if (A4_pixel_is_edge(avg, color1) && level < RESAMPLE_LEVEL) {
+		color1 = recursive_sampling(samples, (double)i-pow(0.5,level), (double)j-pow(0.5,level), level+1, avg);
+	}
+	vec3 color2 = A4_sample_one_dir((double)i-pow(0.5,level),(double)j+pow(0.5,level),true);
+	if (A4_pixel_is_edge(avg, color2) & level < RESAMPLE_LEVEL) {
+		color2 = recursive_sampling(samples, (double)i-pow(0.5,level), (double)j+pow(0.5,level), level + 1, avg);
+	}
+	vec3 color3 = A4_sample_one_dir((double)i+pow(0.5,level),(double)j-pow(0.5,level),true);
+	if (A4_pixel_is_edge(avg, color3) & level < RESAMPLE_LEVEL) {
+		color3 = recursive_sampling(samples, (double)i+pow(0.5,level), (double)j-pow(0.5,level), level + 1, avg);
+	}
+	vec3 color4 = A4_sample_one_dir((double)i+pow(0.5,level),(double)j+pow(0.5,level),true);
+	if (A4_pixel_is_edge(avg, color4) & level < RESAMPLE_LEVEL) {
+		color4 = recursive_sampling(samples, (double)i+pow(0.5,level), (double)j+pow(0.5,level), level + 1, avg);
+	}
+	return 0.25 * (color1 + color2 + color3 + color4);
+}
+
+
 // adaptive sample the image
 void A4::A4_adaptive_sampling( Image & samples)	{
-	double w = image.width();
-	double h = image.height();
 	image = samples;
 	for (int i = 1; i < w -1; i++) {
 		for (int j = 1; j < h-1; j++) {
 			vec3 color = vec3(samples((uint)i, (uint)j, 0),samples((uint)i, (uint)j, 1),samples((uint)i, (uint)j, 2));
-			bool edge = A4_pixel_is_edge (i, j, samples, color);
-			if (edge) {
-				color = 0.25*(A4_sample_one_dir((double)i-0.25,(double)j-0.25,true) + A4_sample_one_dir((double)i-0.25,(double)j+0.25, true)
-					+ A4_sample_one_dir((double)i+0.25,(double)j-0.25, true)+A4_sample_one_dir((double)i+0.25,(double)j-0.25, true));
-				// color = vec3(1.0,1.0,1.0);
+			vec3 avg = get_neighbor_pixel_avg(i, j, samples);
+			bool edge = A4_pixel_is_edge (avg, color);
+			if (not_bg_map[(int)(j*w+i)] && edge) {
+				color = recursive_sampling(samples, (double)i, (double)j, 2, avg);
 			}
 			for ( int k = 0; k < 3; k++) {
 				image((uint)i, (uint)j, k) = color[k];
@@ -233,15 +255,16 @@ glm::vec3 A4::getColor (
 				start = intersection + EPSILON*to_light_dir;
 				t = HUGE_VAL;
 				A4_Render_pixel_rec (root, start, to_light_dir, &t, &n, mat4(1.0), mat4(1.0), &i, &node);
-
+				double dist = glm::length(light->position - intersection);
+				double atten = 1.0/(light->falloff[0] + light->falloff[1] * dist + light->falloff[2]*pow(dist,2.0));
 				if (t == HUGE_VAL) {
 					// diffuse
-					color += light->colour * material->m_kd * normal_dot_light;
+					color += light->colour * material->m_kd * normal_dot_light*atten;
 					// Specular
 					double cos_thetaI = glm::dot(n_normal, -ray_dir);
 					vec3 rf_ray_dir = glm::normalize(2.0*cos_thetaI*n_normal + ray_dir);
 					double rf_dot_view = std::fmax(0.0, glm::dot(rf_ray_dir, to_light_dir));
-					color += material->m_ks * pow(rf_dot_view, material->m_shininess);
+					color += material->m_ks * pow(rf_dot_view, material->m_shininess)*atten;
 				}
 			}
 		}

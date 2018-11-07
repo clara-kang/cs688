@@ -77,6 +77,8 @@ private:
 	glm::vec3 A4_sample_one_dir(
 		double i, double j, bool resample
 	);
-	bool A4_pixel_is_edge (int i, int j, Image & samples, glm::vec3 color);
+	bool A4_pixel_is_edge (glm::vec3 avg, glm::vec3 color);
 	glm::vec3 get_ray_dir(double i, double j);
+	vec3 get_neighbor_pixel_avg(int i, int j, Image & samples);
+	vec3 recursive_sampling( Image & samples,double i,double j, int level, vec3 avg);
 };
