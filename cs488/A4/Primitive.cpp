@@ -71,12 +71,12 @@ bool NonhierBox::intersect(vec3 eye, vec3 ray_dir, double *t, vec3 *n) {
   double xmin,xmax,ymin,ymax,zmin,zmax;
   double t_test, x, y;
   vec3 p_istn;
-  xmin = m_pos[0]-m_size/2.0;
-  xmax = m_pos[0]+m_size/2.0;
-  ymin = m_pos[1]-m_size/2.0;
-  ymax = m_pos[1]+m_size/2.0;
-  zmin = m_pos[2]-m_size/2.0;
-  zmax = m_pos[2]+m_size/2.0;
+  xmin = m_pos[0];
+  xmax = m_pos[0]+m_size;
+  ymin = m_pos[1];
+  ymax = m_pos[1]+m_size;
+  zmin = m_pos[2];
+  zmax = m_pos[2]+m_size;
   *t = HUGE_VAL;
   // z min fixed
   t_test = (zmin - eye[2]) / ray_dir[2];

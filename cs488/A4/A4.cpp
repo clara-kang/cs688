@@ -15,9 +15,11 @@ using namespace std;
 
 static const char *BG_FILE_NAME = "bg.jpg";
 static const double COLOR_THRESHOLD = 0.01;
+static const double REFLECT_MAX_TIMES = 4;
 static unsigned char *bg_data;
 
 static const bool ADAPTIVE_SAMPLING = true;
+static const bool FRESNEL = false;
 static int bg_x, bg_y, channels;
 
 A4::A4(
@@ -102,7 +104,7 @@ glm::vec3 A4::A4_sample_one_dir(
 	if (t < HUGE_VAL) {
 		// get color
 		vec3 color = getColor(root, eye+t*ray_dir, normal,
-			ambient, lights, ray_dir, obj->m_material);
+			ambient, lights, ray_dir, obj->m_material,0);
 		if (!resample) {
 			not_bg_map[(int)(j*w+i)] = true;
 		}
@@ -208,7 +210,9 @@ glm::vec3 A4::getColor (
 	const glm::vec3 & ambient,
 	const std::list<Light *> & lights,
 	const vec3 & ray_dir,
-	Material *material) {
+	Material *material,
+	int count
+) {
 		bool isPhongMat = false;
 		PhongMaterial *phongMat = dynamic_cast<PhongMaterial *>(material);
 		if (phongMat != NULL) {
@@ -234,14 +238,15 @@ glm::vec3 A4::getColor (
 					// diffuse
 					color += light->colour * material->m_kd * normal_dot_light;
 					// Specular
-					vec3 half = glm::normalize(to_light_dir - ray_dir);
-					double normal_dot_half = glm::dot(n_normal, half);
-					color += material->m_ks * pow(normal_dot_half, material->m_shininess);
+					double cos_thetaI = glm::dot(n_normal, -ray_dir);
+					vec3 rf_ray_dir = glm::normalize(2.0*cos_thetaI*n_normal + ray_dir);
+					double rf_dot_view = std::fmax(0.0, glm::dot(rf_ray_dir, to_light_dir));
+					color += material->m_ks * pow(rf_dot_view, material->m_shininess);
 				}
 			}
 		}
 		color += ambient * material->m_kd;
-		if (isPhongMat) {
+		if (isPhongMat && count <= REFLECT_MAX_TIMES) {
 			// compute reflective ray
 			double cos_thetaI = glm::dot(n_normal, -ray_dir);
 			vec3 rf_ray_dir = glm::normalize(2.0*cos_thetaI*n_normal + ray_dir);
@@ -249,25 +254,28 @@ glm::vec3 A4::getColor (
 			t = HUGE_VAL;
 			A4_Render_pixel_rec (root, start, rf_ray_dir, &t, &n, mat4(1.0), mat4(1.0), &i, &node);
 			if (t != HUGE_VAL) {
-				double sin_thetaI = sqrt(1-pow(cos_thetaI, 2.0));
-				double sin_thetaT = sin_thetaI/phongMat->m_rf_index;
-				double r_avg;
-				if (sin_thetaT >= 1) {
-					r_avg = 1;
+				if (FRESNEL) {
+					double sin_thetaI = sqrt(1-pow(cos_thetaI, 2.0));
+					double sin_thetaT = sin_thetaI/phongMat->m_rf_index;
+					double r_avg;
+					if (sin_thetaT >= 1) {
+						r_avg = 1;
+					} else {
+						double cos_thetaT = sqrt(1-pow(sin_thetaT, 2.0));
+						double r_par = (phongMat->m_rf_index * cos_thetaI - cos_thetaT)/
+							(phongMat->m_rf_index * cos_thetaI + cos_thetaT);
+						double r_per = (cos_thetaI - phongMat->m_rf_index*cos_thetaT)/
+							(cos_thetaI + phongMat->m_rf_index*cos_thetaT);
+						r_avg = (pow(r_par,2.0) + pow(r_per,2.0))/2.0;
+					}
+					if (r_avg > 0.0) {
+						// cout << "r_avg: " << r_avg << endl;
+						vec3 rf_color = getColor (root, i, n, ambient, lights, rf_ray_dir, node->m_material, count+1);
+						color = r_avg * rf_color + (1.0 - r_avg) * color;
+					}
 				} else {
-					double cos_thetaT = sqrt(1-pow(sin_thetaT, 2.0));
-					double r_par = (phongMat->m_rf_index * cos_thetaI - cos_thetaT)/
-						(phongMat->m_rf_index * cos_thetaI + cos_thetaT);
-					double r_per = (cos_thetaI - phongMat->m_rf_index*cos_thetaT)/
-						(cos_thetaI + phongMat->m_rf_index*cos_thetaT);
-					r_avg = (pow(r_par,2.0) + pow(r_per,2.0))/2.0;
-				}
-				// cout << "i angle: " << 180.0*acos(cos_thetaI)/PI << endl;
-				// cout << "rf angle: " << 180.0*asin(sin_thetaT)/PI << endl;
-				if (r_avg > 0.0) {
-					// cout << "r_avg: " << r_avg << endl;
-					vec3 rf_color = getColor (root, i, n, ambient, lights, rf_ray_dir, node->m_material);
-					color = r_avg * rf_color + (1.0 - r_avg) * color;
+					vec3 rf_color = getColor (root, i, n, ambient, lights, rf_ray_dir, node->m_material, count+1);
+					color = 0.3 * rf_color + (1.0 - 0.3) * color;
 				}
 			}
 		}
