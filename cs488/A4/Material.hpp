@@ -4,21 +4,14 @@
 
 #include <glm/glm.hpp>
 
-// Material surface properties to be used as input into a local illumination model
-// (e.g. the Phong Reflection Model).
-struct Material {
-	Material()
-			: kd(glm::vec3(0.0f)),
-			  ks(glm::vec3(0.0f)),
-			  shininess(0.0f) { }
+class Material {
+public:
+  virtual ~Material();
 
-	// Diffuse reflection coefficient
-	glm::vec3 kd;
-
-	// Specular reflection coefficient
-	glm::vec3 ks;
-
-	// Material shininess constant.  Larger positive values model surfaces that
-	// are smoother or mirror-like.  Smaller positive values model rougher surfaces.
-	float shininess;
+// protected:
+  //Material();
+	Material(glm::vec3 kd, glm::vec3 ks,double shininess);
+	glm::vec3 m_kd;
+	glm::vec3 m_ks;
+	double m_shininess;
 };
