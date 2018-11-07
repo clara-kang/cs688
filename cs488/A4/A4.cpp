@@ -50,13 +50,13 @@ lights(lights) {
 	pixsize_over_d = 2.0 * tan(fovy*PI/(2.0*180.0)) / image.height();
 	right = glm::normalize(glm::cross(view, up));
 	not_bg_map = new bool[(int)(image.width()*image.height())];
+	w = image.width();
+	h = image.height();
 };
 
 void A4::A4_Render(
 ) {
 	// Get primary samples
-	double w = image.width();
-	double h = image.height();
 	Image primary_samples( w, h);
 
 	// generate rays
@@ -65,8 +65,7 @@ void A4::A4_Render(
 	double t;
 	for (int i = 0; i < w; i++) {
 		for (int j = 0; j < h; j++) {
-
-			vec3 color = A4_sample_one_dir((double)i,(double)j);
+			vec3 color = A4_sample_one_dir((double)i,(double)j, false);
 			for (int k = 0; k < 3; k++) {
 					primary_samples((uint)i, (uint)j, k) = color[k];
 			}
@@ -74,13 +73,7 @@ void A4::A4_Render(
 	}
 	// todo: improve on efficiency
 	if (!ADAPTIVE_SAMPLING) {
-		for (int i = 0; i < w ; i++) {
-			for (int j = 0; j < h; j++) {
-				for (int k = 0; k < 3; k++) {
-					image((uint)i, (uint)j, k) = primary_samples((uint)i, (uint)j, k);
-				}
-			}
-		}
+		image = primary_samples;
 	} else {
 		A4_adaptive_sampling(primary_samples);
 	}
@@ -88,15 +81,18 @@ void A4::A4_Render(
 	stbi_image_free(bg_data);
 }
 
-// given pixel location, calculate ray direction and sample the color
-glm::vec3 A4::A4_sample_one_dir(
-	double i, double j
-) {
-	double w = image.width();
-	double h = image.height();
+glm::vec3 A4::get_ray_dir(double i, double j) {
 	vec3 ray_dir = ((-w/2.0 + i)*right + (h/2.0 - j)*up) *
 		pixsize_over_d + view;
 	ray_dir = glm::normalize(ray_dir);
+	return ray_dir;
+}
+
+// given pixel location, calculate ray direction and sample the color
+glm::vec3 A4::A4_sample_one_dir(
+	double i, double j, bool resample
+) {
+	vec3 ray_dir = get_ray_dir(i,j);
 	vec3 normal, intersection;
 	GeometryNode *obj;
 	double t;
@@ -107,55 +103,70 @@ glm::vec3 A4::A4_sample_one_dir(
 		// get color
 		vec3 color = getColor(root, eye+t*ray_dir, normal,
 			ambient, lights, ray_dir, obj->m_material);
-		not_bg_map[(int)(j*w+i)] = true;
+		if (!resample) {
+			not_bg_map[(int)(j*w+i)] = true;
+		}
 		return color;
 	} else {
 		// get bg color
 		unsigned char* pixelOffset = bg_data + (int)(i + bg_x * j) * channels;
-		not_bg_map[(int)(j*w+i)] = false;
+		if (!resample) {
+			not_bg_map[(int)(j*w+i)] = false;
+		}
 		return vec3((uint)pixelOffset[0]/255.0,(uint)pixelOffset[1]/255.0,(uint)pixelOffset[2]/255.0);
+		// return vec3(0.5,0.5,0.5);
 	}
+}
+
+bool A4::A4_pixel_is_edge (int i, int j, Image & samples, vec3 color) {
+	double w = image.width();
+	double h = image.height();
+	bool edge = false;
+	for (int k = 0; k < 3; k++) {
+		// skip if pixel is background
+		if (not_bg_map[(int)(j*w+i)] == true) {
+			double avg = 0.25*(samples((uint)i-1, (uint)j, k)+samples((uint)i+1, (uint)j, k)
+				+samples((uint)i, (uint)j+1, k)+samples((uint)i, (uint)j-1, k));
+			// compute the difference of pixel color to average of neighbors to detect edge
+			if (abs(avg - color[k]) > COLOR_THRESHOLD) {
+				edge = true;
+				break;
+			}
+		}
+	}
+	return edge;
 }
 
 // adaptive sample the image
 void A4::A4_adaptive_sampling( Image & samples)	{
 	double w = image.width();
 	double h = image.height();
+	image = samples;
 	for (int i = 1; i < w -1; i++) {
 		for (int j = 1; j < h-1; j++) {
-			bool edge = false;
-			for (int k = 0; k < 3; k++) {
-				// skip if pixel is background
-				if (not_bg_map[(int)(j*w+i)] == true) {
-					double avg = 0.25*(samples((uint)i-1, (uint)j, k)+samples((uint)i+1, (uint)j, k)
-						+samples((uint)i, (uint)j+1, k)+samples((uint)i, (uint)j-1, k));
-					// compute the difference of pixel color to average of neighbors to detect edge
-					if (abs(avg - samples((uint)i, (uint)j, k)) > COLOR_THRESHOLD) {
-						edge = true;
-						break;
-					}
-				}
+			vec3 color = vec3(samples((uint)i, (uint)j, 0),samples((uint)i, (uint)j, 1),samples((uint)i, (uint)j, 2));
+			bool edge = A4_pixel_is_edge (i, j, samples, color);
+			if (edge) {
+				color = 0.25*(A4_sample_one_dir((double)i-0.25,(double)j-0.25,true) + A4_sample_one_dir((double)i-0.25,(double)j+0.25, true)
+					+ A4_sample_one_dir((double)i+0.25,(double)j-0.25, true)+A4_sample_one_dir((double)i+0.25,(double)j-0.25, true));
+				// color = vec3(1.0,1.0,1.0);
 			}
 			for ( int k = 0; k < 3; k++) {
-				if (!edge) {
-					image((uint)i, (uint)j, k) = samples((uint)i, (uint)j, k);
-				} else {
-					image((uint)i, (uint)j, k) = 1.0;
-				}
+				image((uint)i, (uint)j, k) = color[k];
 			}
 		}
 	}
-	// not performing edge detection on borders. simply copy data
-	for ( int k = 0; k < 3; k++) {
-		for (int j = 0; j < h; j++) {
-			image(0,j, k) = samples(0,j, k);
-			image(w-1,j, k) = samples(w-1,j, k);
-		}
-		for (int i = 0; i < h; i++) {
-			image(i, 0, k) = samples(i, 0, k);
-			image(i, h-1, k) = samples(i, h-1, k);
-		}
-	}
+	// // not performing edge detection on borders. simply copy data
+	// for ( int k = 0; k < 3; k++) {
+	// 	for (int j = 0; j < h; j++) {
+	// 		image(0,j, k) = samples(0,j, k);
+	// 		image(w-1,j, k) = samples(w-1,j, k);
+	// 	}
+	// 	for (int i = 0; i < h; i++) {
+	// 		image(i, 0, k) = samples(i, 0, k);
+	// 		image(i, h-1, k) = samples(i, h-1, k);
+	// 	}
+	// }
 }
 
 void A4::A4_Render_pixel_rec(

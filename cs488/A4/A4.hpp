@@ -48,6 +48,7 @@ private:
 	double pixsize_over_d;
 	glm::vec3 right;
 	bool *not_bg_map;
+	double w,h;
 
 	glm::vec3 getColor (
 		SceneNode *root,
@@ -73,8 +74,10 @@ private:
 		Image & samples
 	);
 	glm::vec3 A4_sample_one_dir(
-		double i, double j
+		double i, double j, bool resample
 	);
+	bool A4_pixel_is_edge (int i, int j, Image & samples, glm::vec3 color);
+	glm::vec3 get_ray_dir(double i, double j);
 };
 // void A4_Render(
 // 		// What to render
