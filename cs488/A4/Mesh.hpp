@@ -35,7 +35,7 @@ private:
 	NonhierSphere m_bounding_sphere;
 
     friend std::ostream& operator<<(std::ostream& out, const Mesh& mesh);
-
+	bool has_bounding_volume;
 	bool intersectTriangle(vec3 eye, vec3 ray_dir, double *t, Triangle triangle, vec3 *n);
 	void computeBoundingSphere();
 };

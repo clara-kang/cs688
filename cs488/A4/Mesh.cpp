@@ -12,6 +12,9 @@ using namespace glm;
 // #include "cs488-framework/ObjFileDecoder.hpp"
 #include "Mesh.hpp"
 
+static const int MIN_FACES_WITHOUT_BOUNDING_VOL = 6;
+static bool render_bb = false;
+
 Mesh::Mesh( const std::string& fname )
 	: m_vertices()
 	, m_faces()
@@ -31,7 +34,12 @@ Mesh::Mesh( const std::string& fname )
 			m_faces.push_back( Triangle( s1 - 1, s2 - 1, s3 - 1 ) );
 		}
 	}
-	computeBoundingSphere();
+	if (m_faces.size() > MIN_FACES_WITHOUT_BOUNDING_VOL) {
+		has_bounding_volume = true;
+		computeBoundingSphere();
+	} else {
+		has_bounding_volume = false;
+	}
 }
 
 std::ostream& operator<<(std::ostream& out, const Mesh& mesh)
@@ -59,12 +67,17 @@ bool Mesh::intersect(vec3 eye, vec3 ray_dir, double *t, vec3 *n){
 	double t_test;
 	vec3 normal;
 	*t = HUGE_VAL;
-	if (m_bounding_sphere.intersect(eye, ray_dir, &t_test, &normal)) {
-		for (Triangle triangle: m_faces) {
-			if (intersectTriangle(eye, ray_dir, &t_test, triangle, &normal)) {
-				if (t_test < *t) {
-					*t = t_test;
-					*n = normal;
+	if (!has_bounding_volume || m_bounding_sphere.intersect(eye, ray_dir, &t_test, &normal)) {
+		if (has_bounding_volume && render_bb) {
+			*t = t_test;
+			*n = normal;
+		} else {
+			for (Triangle triangle: m_faces) {
+				if (intersectTriangle(eye, ray_dir, &t_test, triangle, &normal)) {
+					if (t_test < *t) {
+						*t = t_test;
+						*n = normal;
+					}
 				}
 			}
 		}
