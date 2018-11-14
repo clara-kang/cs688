@@ -2,6 +2,8 @@
 
 #include <iostream>
 #include <fstream>
+#include <sstream>
+#include <string>
 
 #include <glm/ext.hpp>
 #include <glm/gtx/string_cast.hpp>
@@ -22,18 +24,60 @@ Mesh::Mesh( const std::string& fname )
 {
 	std::string code;
 	double vx, vy, vz;
-	size_t s1, s2, s3;
+	double tx, ty;
+	size_t uv[3];
+	size_t s[3];
+	std::string f[3];
+	std::string delim = "/";
 
 	std::ifstream ifs( fname.c_str() );
+	std::string line, model_name;
+	while (getline(ifs, line)) {
+		stringstream(line) >> code;
+		if (code == "o") {
+			int use_uv;
+			stringstream(line) >> code >> model_name >> use_uv;
+			// if (use_uv == 1) {
+			// 	cout << "use uv" << endl;;
+			// } else {
+			// 	cout << "not using uv" << endl;
+			// }
+			has_uv = use_uv;
+			break;
+		}
+	}
 	while( ifs >> code ) {
 		if( code == "v" ) {
 			ifs >> vx >> vy >> vz;
 			m_vertices.push_back( glm::vec3( vx, vy, vz ) );
 		} else if( code == "f" ) {
-			ifs >> s1 >> s2 >> s3;
-			m_faces.push_back( Triangle( s1 - 1, s2 - 1, s3 - 1 ) );
+			if (has_uv) {
+				ifs >> f[0] >> f[1] >> f[2];
+				int pos;
+				for (int i = 0; i < 3; i++) {
+					pos = f[i].find(delim);
+					stringstream(f[i].substr(0, pos)) >> s[i];
+					stringstream(f[i].substr(pos+1, strlen(f[i].c_str()))) >> uv[i];
+				}
+				// cout << f[0] << " " << f[1] << " " << f[2] << endl;
+				// cout << "s[0]: " << s[0] << ", s[1]: " << s[1] << ", s[2]: " << s[2] << endl;
+				// cout << "uv[0]: " << uv[0] << ", uv[1]: " << uv[1] << ", uv[2]: " << uv[2] << endl;
+				Triangle t = Triangle( s[0] - 1, s[1] - 1, s[2] - 1 );
+				t.SetUVs(uv[0]-1, uv[1]-1, uv[2]-1);
+				m_faces.push_back( t );
+			} else {
+				ifs >> s[0] >> s[1] >> s[2];
+				Triangle t = Triangle( s[0] - 1, s[1] - 1, s[2] - 1 );
+				m_faces.push_back( t );
+			}
+		} else if ( code == "vt") {
+			ifs >> tx >> ty;
+			m_uvs.push_back( glm::vec2 (tx, ty));
 		}
 	}
+	// cout << "num of faces: " << m_faces.size() << endl;
+	// cout << "num of verts: " << m_vertices.size() << endl;
+	// cout << "num of uvs: "  << m_uvs.size() << endl;
 	if (m_faces.size() > MIN_FACES_WITHOUT_BOUNDING_VOL) {
 		has_bounding_volume = true;
 		computeBoundingSphere();
@@ -63,20 +107,23 @@ std::ostream& operator<<(std::ostream& out, const Mesh& mesh)
   return out;
 }
 
-bool Mesh::intersect(vec3 eye, vec3 ray_dir, double *t, vec3 *n){
+bool Mesh::intersect(vec3 eye, vec3 ray_dir, double *t, vec3 *n, vec2 *uv){
+	// cout << "mesh intersect" << endl;
 	double t_test;
 	vec3 normal;
+	vec2 uv_coord;
 	*t = HUGE_VAL;
-	if (!has_bounding_volume || m_bounding_sphere.intersect(eye, ray_dir, &t_test, &normal)) {
+	if (!has_bounding_volume || m_bounding_sphere.intersect(eye, ray_dir, &t_test, &normal, &uv_coord)) {
 		if (has_bounding_volume && render_bb) {
 			*t = t_test;
 			*n = normal;
 		} else {
 			for (Triangle triangle: m_faces) {
-				if (intersectTriangle(eye, ray_dir, &t_test, triangle, &normal)) {
+				if (intersectTriangle(eye, ray_dir, &t_test, triangle, &normal, &uv_coord)) {
 					if (t_test < *t) {
 						*t = t_test;
 						*n = normal;
+						*uv = uv_coord;
 					}
 				}
 			}
@@ -88,7 +135,7 @@ bool Mesh::intersect(vec3 eye, vec3 ray_dir, double *t, vec3 *n){
 	return false;
 }
 
-bool Mesh::intersectTriangle(vec3 eye, vec3 ray_dir, double *t, Triangle triangle, vec3 *n) {
+bool Mesh::intersectTriangle(vec3 eye, vec3 ray_dir, double *t, Triangle triangle, vec3 *n, vec2* uv) {
 	vec3 col1 = m_vertices.at(triangle.v1) - m_vertices.at(triangle.v2);
 	vec3 col2 = m_vertices.at(triangle.v1) - m_vertices.at(triangle.v3);
 	vec3 X = m_vertices.at(triangle.v1) - eye;
@@ -107,6 +154,10 @@ bool Mesh::intersectTriangle(vec3 eye, vec3 ray_dir, double *t, Triangle triangl
 	*t = detT / detA;
 	if (*t > 0) {
 		*n = glm::normalize(glm::cross(col1, col2));
+		// cout << "v1: " << triangle.v1 << ",v2: " << triangle.v2 << ", v3: " << triangle.v3 << endl;
+		// cout << "uv1: " << triangle.uv1 << ",uv2: " << triangle.uv2 << ", uv3: " << triangle.uv3 << endl;
+		// cout << endl;
+		*uv = m_uvs.at(triangle.uv1) * (1-beta-gamma) + m_uvs.at(triangle.uv2) * beta + m_uvs.at(triangle.uv3) * gamma;
 		return true;
 	}
 	return false;

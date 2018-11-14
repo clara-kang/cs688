@@ -1,0 +1,14 @@
+To compile:
+premake4 gmake
+make
+
+The code has been tested on gl14.
+
+Manual:
+The extra feature is adaptive anti-aliasing
+hier_edge.png and nonhier_edge.png shows that the edges are detected successfully.
+Only hier.png and nonhier.png are rendered with adaptive anti-aliasing due to time constraint. (ADAPTIVE_SAMPLING in A4.cpp was set to false when rendering the rest)
+
+The unique scene includes two types of trees, a tent, water, a terrain and some clouds. I made the models.
+
+The unique scene was rendered with a different background (bg11.jpg instead of bg.jpg).

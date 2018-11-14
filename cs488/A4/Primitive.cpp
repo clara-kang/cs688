@@ -17,24 +17,24 @@ Primitive::~Primitive()
 Sphere::~Sphere()
 {
 }
-bool Sphere::intersect(vec3 eye, vec3 ray_dir, double *t, vec3 *n) {
+bool Sphere::intersect(vec3 eye, vec3 ray_dir, double *t, vec3 *n, vec2* uv) {
   NonhierSphere ns (vec3(0.0,0.0,0.0), 1.0);
-  return ns.intersect(eye, ray_dir, t, n);
+  return ns.intersect(eye, ray_dir, t, n, uv);
 }
 
 Cube::~Cube()
 {
 }
-bool Cube::intersect(vec3 eye, vec3 ray_dir, double *t, vec3 *n) {
+bool Cube::intersect(vec3 eye, vec3 ray_dir, double *t, vec3 *n, vec2* uv) {
   NonhierBox nb (vec3(0.0,0.0,0.0), 1.0);
-  return nb.intersect(eye, ray_dir, t, n);
+  return nb.intersect(eye, ray_dir, t, n, uv);
 }
 
 NonhierSphere::~NonhierSphere()
 {
 
 }
-bool NonhierSphere::intersect(vec3 eye, vec3 ray_dir, double *t, vec3 *n) {
+bool NonhierSphere::intersect(vec3 eye, vec3 ray_dir, double *t, vec3 *n, vec2* uv) {
   //cout << glm::to_string(ray_dir) << endl;
   double A = pow(glm::length(ray_dir),2.0);
   double B = 2.0*glm::dot(ray_dir, (eye-m_pos));
@@ -67,7 +67,7 @@ bool NonhierSphere::intersect(vec3 eye, vec3 ray_dir, double *t, vec3 *n) {
 NonhierBox::~NonhierBox()
 {
 }
-bool NonhierBox::intersect(vec3 eye, vec3 ray_dir, double *t, vec3 *n) {
+bool NonhierBox::intersect(vec3 eye, vec3 ray_dir, double *t, vec3 *n, vec2* uv) {
   double xmin,xmax,ymin,ymax,zmin,zmax;
   double t_test, x, y;
   vec3 p_istn;
