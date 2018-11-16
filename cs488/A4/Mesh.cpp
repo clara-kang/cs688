@@ -107,22 +107,24 @@ std::ostream& operator<<(std::ostream& out, const Mesh& mesh)
   return out;
 }
 
-bool Mesh::intersect(vec3 eye, vec3 ray_dir, double *t, vec3 *n, vec2 *uv){
+bool Mesh::intersect(vec3 eye, vec3 ray_dir, double *t, vec3 *n, vec3 *tg, vec2 *uv){
 	// cout << "mesh intersect" << endl;
 	double t_test;
 	vec3 normal;
+	vec3 tangent;
 	vec2 uv_coord;
 	*t = HUGE_VAL;
-	if (!has_bounding_volume || m_bounding_sphere.intersect(eye, ray_dir, &t_test, &normal, &uv_coord)) {
+	if (!has_bounding_volume || m_bounding_sphere.intersect(eye, ray_dir, &t_test, &normal, &tangent, &uv_coord)) {
 		if (has_bounding_volume && render_bb) {
 			*t = t_test;
 			*n = normal;
 		} else {
 			for (Triangle triangle: m_faces) {
-				if (intersectTriangle(eye, ray_dir, &t_test, triangle, &normal, &uv_coord)) {
+				if (intersectTriangle(eye, ray_dir, &t_test, triangle, &normal, &tangent, &uv_coord)) {
 					if (t_test < *t) {
 						*t = t_test;
 						*n = normal;
+						*tg = tangent;
 						*uv = uv_coord;
 					}
 				}
@@ -135,7 +137,7 @@ bool Mesh::intersect(vec3 eye, vec3 ray_dir, double *t, vec3 *n, vec2 *uv){
 	return false;
 }
 
-bool Mesh::intersectTriangle(vec3 eye, vec3 ray_dir, double *t, Triangle triangle, vec3 *n, vec2* uv) {
+bool Mesh::intersectTriangle(vec3 eye, vec3 ray_dir, double *t, Triangle triangle, vec3 *n, vec3 *tg, vec2* uv) {
 	vec3 col1 = m_vertices.at(triangle.v1) - m_vertices.at(triangle.v2);
 	vec3 col2 = m_vertices.at(triangle.v1) - m_vertices.at(triangle.v3);
 	vec3 X = m_vertices.at(triangle.v1) - eye;
@@ -157,7 +159,13 @@ bool Mesh::intersectTriangle(vec3 eye, vec3 ray_dir, double *t, Triangle triangl
 		// cout << "v1: " << triangle.v1 << ",v2: " << triangle.v2 << ", v3: " << triangle.v3 << endl;
 		// cout << "uv1: " << triangle.uv1 << ",uv2: " << triangle.uv2 << ", uv3: " << triangle.uv3 << endl;
 		// cout << endl;
-		*uv = m_uvs.at(triangle.uv1) * (1-beta-gamma) + m_uvs.at(triangle.uv2) * beta + m_uvs.at(triangle.uv3) * gamma;
+		if (has_uv) {
+			*uv = m_uvs.at(triangle.uv1) * (1-beta-gamma) + m_uvs.at(triangle.uv2) * beta + m_uvs.at(triangle.uv3) * gamma;
+			vec2 deltaUV1 =  m_uvs.at(triangle.uv2) - m_uvs.at(triangle.uv1);
+			vec2 deltaUV2 = m_uvs.at(triangle.uv3) - m_uvs.at(triangle.uv1);
+			double r = 1.0/(deltaUV1[0]*deltaUV2[1] - deltaUV1[1]*deltaUV2[0]);
+			*tg = (-col1 * deltaUV2[1] + col2 * deltaUV2[0]) * r;
+		}
 		return true;
 	}
 	return false;

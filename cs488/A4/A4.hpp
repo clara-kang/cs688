@@ -75,6 +75,7 @@ private:
 		SceneNode *root,
 		const vec3 & intersection,
 		const vec3 & normal,
+		const vec3 & tangent,
 		const vec2 & uv,
 		const vec3 & ray_dir,
 		Material *material,
@@ -86,6 +87,7 @@ private:
 			const glm::vec3 & ray_dir,
 			double *t,
 			vec3 *n,
+			vec3 *tg,
 			vec2 *uv,
 			mat4 T,
 			mat4 T_n,
@@ -103,4 +105,5 @@ private:
 	vec3 get_neighbor_pixel_avg(int i, int j, Image & samples);
 	vec3 recursive_sampling( Image & samples,double i,double j, int level, vec3 avg);
 	std::map<std::string, image_data> textures;
+	std::map<std::string, image_data> normal_maps;
 };

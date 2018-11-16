@@ -104,16 +104,16 @@ glm::vec3 A4::A4_sample_one_dir(
 	double i, double j, bool resample
 ) {
 	vec3 ray_dir = get_ray_dir(i,j);
-	vec3 normal, intersection;
+	vec3 normal, intersection, tangent;
 	vec2 uv;
 	GeometryNode *obj;
 	double t;
 	t = HUGE_VAL;
-	A4_Render_pixel_rec (root, eye, ray_dir, &t, &normal, &uv, mat4(1.0), mat4(1.0), &intersection, &obj);
+	A4_Render_pixel_rec (root, eye, ray_dir, &t, &normal, &tangent, &uv, mat4(1.0), mat4(1.0), &intersection, &obj);
 	// if intersect object
 	if (t < HUGE_VAL) {
 		// get color
-		vec3 color = getColor(root, eye+t*ray_dir, normal, uv, ray_dir, obj->m_material,0);
+		vec3 color = getColor(root, eye+t*ray_dir, normal, tangent, uv, ray_dir, obj->m_material,0);
 		if (!resample) {
 			not_bg_map[(int)(j*w+i)] = true;
 		}
@@ -207,6 +207,7 @@ void A4::A4_Render_pixel_rec(
 	const glm::vec3 & ray_dir,
 	double *t,
 	vec3 *n,
+	vec3 *tg,
 	vec2 *uv,
 	mat4 T,
 	mat4 T_n,
@@ -220,19 +221,21 @@ void A4::A4_Render_pixel_rec(
 		Primitive *prim = gnode->m_primitive;
 		double t_test = HUGE_VAL;
 		vec3 normal;
+		vec3 tangent;
 		vec2 uv_coord;
 		bool intersect = prim->intersect(vec3(T_new*vec4(start,1.0)),
-			vec3(T_new*vec4(ray_dir,0.0)), &t_test, &normal, &uv_coord);
+			vec3(T_new*vec4(ray_dir,0.0)), &t_test, &normal, &tangent, &uv_coord);
 		if (intersect && t_test < *t) {
 			*t = t_test;
 			*obj = gnode;
 			*n = vec3(T_n_new*vec4(normal, 0.0));
+			*tg = vec3(glm::inverse(T_new)*vec4(tangent, 0.0));
 			*uv = uv_coord;
 			*intersection = start + t_test*ray_dir;
 		}
 	}
 	for (SceneNode *child : root->children) {
-		A4::A4_Render_pixel_rec(child, start, ray_dir, t, n, uv, T_new, T_n_new, intersection, obj);
+		A4::A4_Render_pixel_rec(child, start, ray_dir, t, n, tg, uv, T_new, T_n_new, intersection, obj);
 	}
 }
 
@@ -240,6 +243,7 @@ glm::vec3 A4::getColor (
 	SceneNode *root,
 	const vec3 & intersection,
 	const vec3 & normal,
+	const vec3 & tangent,
 	const vec2 & uv,
 	const vec3 & ray_dir,
 	Material *material,
@@ -250,15 +254,41 @@ glm::vec3 A4::getColor (
 		if (phongMat != NULL) {
 			isPhongMat = true;
 		}
-		vec3 to_light_dir, start, n;
+		vec3 to_light_dir, start, n, tg;
 		vec2 uv_coord;
 		vec3 color = vec3(0.0, 0.0, 0.0);
 		vec3 n_normal = glm::normalize(normal);
+		vec3 n_tangent = glm::normalize(tangent);
 		vec3 i; // intersection
 		double t = HUGE_VAL;
 		GeometryNode *node;
 		vec3 diffuse_color = material->m_kd;
 		vec3 specular_color = material->m_ks;
+
+		// do normal mapping if necessary
+		if (isPhongMat && strlen((phongMat->m_normal_fname).c_str()) > 0) {
+			// map entry for normal map not yet created
+			if (normal_maps.find(phongMat->m_normal_fname) == normal_maps.end()) {
+				int im_x, im_y, im_c;
+				unsigned char *im_data;
+				im_data = stbi_load((phongMat->m_normal_fname).c_str(), &im_x, &im_y, &im_c, 0);
+				image_data new_normal = image_data{
+					im_x,
+					im_y,
+					im_c,
+					im_data
+				};
+				normal_maps.insert(std::pair<string,image_data>(phongMat->m_normal_fname, new_normal) );
+			} else {
+				// texture lookup
+				image_data normal_m = normal_maps.at(phongMat->m_normal_fname);
+				vec3 normal_shift = 2.0 * normal_m.get_color_at_loc(uv) - vec3(1.0,1.0,1.0);
+				vec3 bitangent = glm::normalize(glm::cross(normal, n_tangent));
+				vec3 shifted_normal = n_normal + normal_shift[0]*n_tangent + normal_shift[1]*bitangent + normal_shift[2]*normal;
+				n_normal = glm::normalize(shifted_normal);
+			}
+		}
+
 		for (Light *light : lights) {
 			to_light_dir = glm::normalize(light->position - intersection);
 			// test if facing light
@@ -267,7 +297,7 @@ glm::vec3 A4::getColor (
 				// test if light is blocked
 				start = intersection + EPSILON*to_light_dir;
 				t = HUGE_VAL;
-				A4_Render_pixel_rec (root, start, to_light_dir, &t, &n, &uv_coord, mat4(1.0), mat4(1.0), &i, &node);
+				A4_Render_pixel_rec (root, start, to_light_dir, &t, &n, &tg, &uv_coord, mat4(1.0), mat4(1.0), &i, &node);
 				double dist = glm::length(light->position - intersection);
 				double atten = 1.0/(light->falloff[0] + light->falloff[1] * dist + light->falloff[2]*pow(dist,2.0));
 				if (t == HUGE_VAL) {
@@ -286,6 +316,7 @@ glm::vec3 A4::getColor (
 							};
 							textures.insert(std::pair<string,image_data>(phongMat->m_tex_fname, new_tex) );
 						} else {
+							// texture lookup
 							image_data tex = textures.at(phongMat->m_tex_fname);
 							diffuse_color = tex.get_color_at_loc(uv);
 							specular_color = diffuse_color;
@@ -311,7 +342,7 @@ glm::vec3 A4::getColor (
 			vec3 rf_ray_dir = glm::normalize(2.0*cos_thetaI*n_normal + ray_dir);
 			start = intersection + EPSILON*rf_ray_dir;
 			t = HUGE_VAL;
-			A4_Render_pixel_rec (root, start, rf_ray_dir, &t, &n, &uv_coord, mat4(1.0), mat4(1.0), &i, &node);
+			A4_Render_pixel_rec (root, start, rf_ray_dir, &t, &n, &tg, &uv_coord, mat4(1.0), mat4(1.0), &i, &node);
 			if (t != HUGE_VAL) {
 				if (FRESNEL) {
 					double sin_thetaI = sqrt(1-pow(cos_thetaI, 2.0));
@@ -329,11 +360,11 @@ glm::vec3 A4::getColor (
 					}
 					if (r_avg > 0.0) {
 						// cout << "r_avg: " << r_avg << endl;
-						vec3 rf_color = getColor (root, i, n, uv_coord, rf_ray_dir, node->m_material, count+1);
+						vec3 rf_color = getColor (root, i, n, tangent, uv_coord, rf_ray_dir, node->m_material, count+1);
 						color = r_avg * rf_color + (1.0 - r_avg) * color;
 					}
 				} else {
-					vec3 rf_color = getColor (root, i, n, uv_coord, rf_ray_dir, node->m_material, count+1);
+					vec3 rf_color = getColor (root, i, n, tangent, uv_coord, rf_ray_dir, node->m_material, count+1);
 					color = 0.3 * rf_color + (1.0 - 0.3) * color;
 				}
 			}

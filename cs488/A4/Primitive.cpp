@@ -7,6 +7,8 @@
 #include <iostream>
 #include <glm/gtx/string_cast.hpp>
 
+#define PI 3.14159
+
 using namespace std;
 
 Primitive::~Primitive()
@@ -17,24 +19,24 @@ Primitive::~Primitive()
 Sphere::~Sphere()
 {
 }
-bool Sphere::intersect(vec3 eye, vec3 ray_dir, double *t, vec3 *n, vec2* uv) {
+bool Sphere::intersect(vec3 eye, vec3 ray_dir, double *t, vec3 *n, vec3 *tg, vec2* uv) {
   NonhierSphere ns (vec3(0.0,0.0,0.0), 1.0);
-  return ns.intersect(eye, ray_dir, t, n, uv);
+  return ns.intersect(eye, ray_dir, t, n, tg, uv);
 }
 
 Cube::~Cube()
 {
 }
-bool Cube::intersect(vec3 eye, vec3 ray_dir, double *t, vec3 *n, vec2* uv) {
+bool Cube::intersect(vec3 eye, vec3 ray_dir, double *t, vec3 *n, vec3 *tg, vec2* uv) {
   NonhierBox nb (vec3(0.0,0.0,0.0), 1.0);
-  return nb.intersect(eye, ray_dir, t, n, uv);
+  return nb.intersect(eye, ray_dir, t, n, tg, uv);
 }
 
 NonhierSphere::~NonhierSphere()
 {
 
 }
-bool NonhierSphere::intersect(vec3 eye, vec3 ray_dir, double *t, vec3 *n, vec2* uv) {
+bool NonhierSphere::intersect(vec3 eye, vec3 ray_dir, double *t, vec3 *n, vec3 *tg, vec2* uv) {
   //cout << glm::to_string(ray_dir) << endl;
   double A = pow(glm::length(ray_dir),2.0);
   double B = 2.0*glm::dot(ray_dir, (eye-m_pos));
@@ -59,6 +61,10 @@ bool NonhierSphere::intersect(vec3 eye, vec3 ray_dir, double *t, vec3 *n, vec2* 
   }
   if (*t > 0) {
     *n = glm::normalize(eye + (float)(*t)*ray_dir - m_pos);
+    double u = 0.5 + atan2((*n)[0],(*n)[2])/(2*PI);
+    double v = 0.5 + asin((*n)[1]/m_radius)/PI;
+    *uv = vec2(u,v);
+    *tg = vec3(-(*n)[2],0,(*n)[0]);
     return true;
   }
   return false;
@@ -67,9 +73,10 @@ bool NonhierSphere::intersect(vec3 eye, vec3 ray_dir, double *t, vec3 *n, vec2* 
 NonhierBox::~NonhierBox()
 {
 }
-bool NonhierBox::intersect(vec3 eye, vec3 ray_dir, double *t, vec3 *n, vec2* uv) {
+bool NonhierBox::intersect(vec3 eye, vec3 ray_dir, double *t, vec3 *n, vec3 *tg, vec2* uv) {
   double xmin,xmax,ymin,ymax,zmin,zmax;
   double t_test, x, y;
+  int intersectFace = -1; //1:Zmin 2:Zmax 3:Ymin 4:Ymax 5:Xmin 6:Xmax
   vec3 p_istn;
   xmin = m_pos[0];
   xmax = m_pos[0]+m_size;
@@ -84,7 +91,7 @@ bool NonhierBox::intersect(vec3 eye, vec3 ray_dir, double *t, vec3 *n, vec2* uv)
   if (isWithin(p_istn[0], p_istn[1], xmin, ymin, xmax, ymax)) {
     if (t_test < *t && t_test > 0) {
       *t = t_test;
-      *n = vec3(0.0, 0.0, -1.0);
+      intersectFace = 1;
     }
   }
   // z max fixed
@@ -93,7 +100,7 @@ bool NonhierBox::intersect(vec3 eye, vec3 ray_dir, double *t, vec3 *n, vec2* uv)
   if (isWithin(p_istn[0], p_istn[1], xmin, ymin, xmax, ymax)) {
     if (t_test < *t && t_test > 0) {
       *t = t_test;
-      *n = vec3(0.0, 0.0, +1.0);
+      intersectFace = 2;
     }
   }
   // y min Fixed
@@ -102,7 +109,7 @@ bool NonhierBox::intersect(vec3 eye, vec3 ray_dir, double *t, vec3 *n, vec2* uv)
   if (isWithin(p_istn[0], p_istn[2], xmin, zmin, xmax, zmax)) {
     if (t_test < *t && t_test > 0) {
       *t = t_test;
-      *n = vec3(0.0, -1.0, 0.0);
+      intersectFace = 3;
     }
   }
   // y max Fixed
@@ -111,7 +118,7 @@ bool NonhierBox::intersect(vec3 eye, vec3 ray_dir, double *t, vec3 *n, vec2* uv)
   if (isWithin(p_istn[0], p_istn[2], xmin, zmin, xmax, zmax)) {
     if (t_test < *t && t_test > 0) {
       *t = t_test;
-      *n = vec3(0.0, 1.0, 0.0);
+      intersectFace = 4;
     }
   }
   // x min Fixed
@@ -120,7 +127,7 @@ bool NonhierBox::intersect(vec3 eye, vec3 ray_dir, double *t, vec3 *n, vec2* uv)
   if (isWithin(p_istn[1], p_istn[2], ymin, zmin, ymax, zmax)) {
     if (t_test < *t && t_test > 0) {
       *t = t_test;
-      *n = vec3(-1.0, 0.0, 0.0);
+      intersectFace = 5;
     }
   }
   // x max Fixed
@@ -129,8 +136,44 @@ bool NonhierBox::intersect(vec3 eye, vec3 ray_dir, double *t, vec3 *n, vec2* uv)
   if (isWithin(p_istn[1], p_istn[2], ymin, zmin, ymax, zmax)) {
     if (t_test < *t && t_test > 0) {
       *t = t_test;
-      *n = vec3(1.0, 0.0, 0.0);
+      intersectFace = 6;
     }
+  }
+  switch (intersectFace) {
+    case 1:
+      *n = vec3(0.0, 0.0, -1.0);
+      break;
+    case 2:
+      *n = vec3(0.0, 0.0, +1.0);
+      break;
+    case 3:
+      *n = vec3(0.0, -1.0, 0.0);
+      break;
+    case 4:
+      *n = vec3(0.0, 1.0, 0.0);
+      break;
+    case 5:
+      *n = vec3(-1.0, 0.0, 0.0);
+      break;
+    case 6:
+      *n = vec3(1.0, 0.0, 0.0);
+      break;
+  }
+  if (intersectFace == 1 || intersectFace == 2) {
+    double intersectX = eye[0] + (*t)*ray_dir[0];
+    double intersectY = eye[1] + (*t)*ray_dir[1];
+    *uv = vec2(intersectX, intersectY);
+    *tg = vec3(1.0, 0.0, 0.0);
+  } else if (intersectFace == 3 || intersectFace == 4) {
+    double intersectX = eye[0] + (*t)*ray_dir[0];
+    double intersectZ = eye[2] + (*t)*ray_dir[2];
+    *uv = vec2(intersectX, intersectZ);
+    *tg = vec3(0.0, 0.0, 1.0);
+  } else if (intersectFace == 5 || intersectFace == 6) {
+    double intersectY = eye[1] + (*t)*ray_dir[1];
+    double intersectZ = eye[2] + (*t)*ray_dir[2];
+    *uv = vec2(intersectY, intersectZ);
+    *tg = vec3(0.0, 1.0, 0.0);
   }
   if (*t < HUGE_VAL) {
     return true;

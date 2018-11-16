@@ -37,7 +37,7 @@ struct Triangle
 class Mesh : public Primitive {
 public:
   Mesh( const std::string& fname );
-	bool intersect(vec3 eye, vec3 ray_dir, double *t, vec3 *n, vec2* uv);
+	bool intersect(vec3 eye, vec3 ray_dir, double *t, vec3 *n, vec3 *tg, vec2* uv);
 
 private:
 	std::vector<glm::vec3> m_vertices;
@@ -47,6 +47,6 @@ private:
 
     friend std::ostream& operator<<(std::ostream& out, const Mesh& mesh);
 	bool has_bounding_volume;
-	bool intersectTriangle(vec3 eye, vec3 ray_dir, double *t, Triangle triangle, vec3 *n, vec2 *uv);
+	bool intersectTriangle(vec3 eye, vec3 ray_dir, double *t, Triangle triangle, vec3 *n, vec3 *tg, vec2 *uv);
 	void computeBoundingSphere();
 };
