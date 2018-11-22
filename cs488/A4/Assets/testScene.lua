@@ -40,12 +40,20 @@ scene:translate(6, -2, -15)
 -- plane:set_material(grass)
 -- plane:scale(30, 30, 30)
 
--- sphere
+-- mesh
 -- poly = gr.mesh( 'tex_monkey', 'tex_monkey.obj' )
 -- scene:add_child(poly)
 -- poly:scale(3,3,3)
 -- poly:translate(-5, 1.618034, 0)
 -- poly:set_material(test_blue)
+
+-- curves
+poly = gr.curves( 'particles', 'hollow_cube.obj' )
+scene:add_child(poly)
+-- poly:scale(0.2,0.2,0.2)
+-- poly:translate(-5, 1.618034, 0)
+poly:translate(-5, 0, 0)
+poly:set_material(gold)
 
 -- sphere
 -- poly = gr.sphere( 'ball' )
@@ -55,16 +63,16 @@ scene:translate(6, -2, -15)
 -- poly:set_material(test_blue)
 
 -- cube
-poly = gr.cube( 'cube' )
-scene:add_child(poly)
-poly:scale(3,3,3)
-poly:translate(-5, 1.618034, 0)
-poly:set_material(test_blue)
+-- poly = gr.cube( 'cube' )
+-- scene:add_child(poly)
+-- poly:scale(3,3,3)
+-- poly:translate(-5, 1.618034, 0)
+-- poly:set_material(test_blue)
 
 -- The lights
-l1 = gr.light({200,200,400}, {0.8, 0.8, 0.8}, {1, 0, 0})
-l2 = gr.light({0, 5, -20}, {0.4, 0.4, 0.8}, {1, 0, 0})
+l1 = gr.light({0, 0, 0}, {0.8, 0.8, 0.8}, {1, 0, 0})
+-- l2 = gr.light({0, 5, -20}, {0.8, 0.8, 0.8}, {1, 0, 0})
 
 gr.render(scene, 'test.png', 512, 512,
 	  {0, 0, 0,}, {0, 0, -1}, {0, 1, 0}, 50,
-	  {0.4, 0.4, 0.4}, {l1, l2})
+	  {0.4, 0.4, 0.4}, {l1})

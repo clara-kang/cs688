@@ -219,19 +219,16 @@ void A4::A4_Render_pixel_rec(
 	if ( root -> m_nodeType == NodeType::GeometryNode ){
 		GeometryNode * gnode = static_cast<GeometryNode *>(root);
 		Primitive *prim = gnode->m_primitive;
-		double t_test = HUGE_VAL;
-		vec3 normal;
-		vec3 tangent;
-		vec2 uv_coord;
+		Intersection isect = Intersection();
 		bool intersect = prim->intersect(vec3(T_new*vec4(start,1.0)),
-			vec3(T_new*vec4(ray_dir,0.0)), &t_test, &normal, &tangent, &uv_coord);
-		if (intersect && t_test < *t) {
-			*t = t_test;
+			vec3(T_new*vec4(ray_dir,0.0)), &isect);
+		if (intersect && isect.t < *t) {
+			*t = isect.t;
 			*obj = gnode;
-			*n = vec3(T_n_new*vec4(normal, 0.0));
-			*tg = vec3(glm::inverse(T_new)*vec4(tangent, 0.0));
-			*uv = uv_coord;
-			*intersection = start + t_test*ray_dir;
+			*n = vec3(T_n_new*vec4(isect.normal, 0.0));
+			*tg = vec3(glm::inverse(T_new)*vec4(isect.tangent, 0.0));
+			*uv = isect.uv;
+			*intersection = start + isect.t*ray_dir;
 		}
 	}
 	for (SceneNode *child : root->children) {
@@ -294,6 +291,7 @@ glm::vec3 A4::getColor (
 			// test if facing light
 			double normal_dot_light = glm::dot(to_light_dir, n_normal);
 			if (normal_dot_light > 0) {
+				// cout << "normal_dot_light: " << normal_dot_light << endl;
 				// test if light is blocked
 				start = intersection + EPSILON*to_light_dir;
 				t = HUGE_VAL;

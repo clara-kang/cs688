@@ -5,17 +5,30 @@
 #include <glm/glm.hpp>
 using namespace glm;
 
+struct Intersection {
+	double t;
+	vec3 normal;
+	vec2 uv;
+	vec3 tangent;
+	Intersection(double pt, vec3 pnormal, vec2 puv, vec3 ptangent)
+	: t(pt), normal(pnormal), uv(puv), tangent(ptangent){
+	}
+	Intersection()
+	: t(HUGE_VAL), normal(vec3(1.0)), uv(vec2(1.0)), tangent(vec3(1.0)){
+	}
+};
+
 class Primitive {
 public:
   virtual ~Primitive();
-  virtual  bool intersect(vec3 eye, vec3 ray_dir, double *t, vec3 *n, vec3 *tg, vec2* uv) {return true;}
+  virtual  bool intersect(vec3 eye, vec3 ray_dir, Intersection *isect) {return true;}
   bool has_uv = false;
 };
 
 class Sphere : public Primitive {
 public:
   virtual ~Sphere();
-  bool intersect(vec3 eye, vec3 ray_dir, double *t, vec3 *n, vec3 *tg, vec2* uv);
+  bool intersect(vec3 eye, vec3 ray_dir, Intersection *isect);
 private:
   glm::vec3 m_pos;
   double m_radius;
@@ -24,7 +37,7 @@ private:
 class Cube : public Primitive {
 public:
   virtual ~Cube();
-  bool intersect(vec3 eye, vec3 ray_dir, double *t, vec3 *n, vec3 *tg, vec2* uv);
+  bool intersect(vec3 eye, vec3 ray_dir, Intersection *isect);
 };
 
 class NonhierSphere : public Primitive {
@@ -34,7 +47,7 @@ public:
   {
   }
   virtual ~NonhierSphere();
-  bool intersect(vec3 eye, vec3 ray_dir, double *t, vec3 *n, vec3 *tg, vec2* uv);
+  bool intersect(vec3 eye, vec3 ray_dir, Intersection *isect);
 
 // private:
   glm::vec3 m_pos;
@@ -48,7 +61,7 @@ public:
   {
     m_pos += vec3(0.0,0.0,0.0);
   }
-  bool intersect(vec3 eye, vec3 ray_dir, double *t, vec3 *n, vec3 *tg, vec2* uv);
+  bool intersect(vec3 eye, vec3 ray_dir, Intersection *isect);
   virtual ~NonhierBox();
 
 private:

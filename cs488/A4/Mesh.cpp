@@ -37,11 +37,6 @@ Mesh::Mesh( const std::string& fname )
 		if (code == "o") {
 			int use_uv;
 			stringstream(line) >> code >> model_name >> use_uv;
-			// if (use_uv == 1) {
-			// 	cout << "use uv" << endl;;
-			// } else {
-			// 	cout << "not using uv" << endl;
-			// }
 			has_uv = use_uv;
 			break;
 		}
@@ -59,9 +54,6 @@ Mesh::Mesh( const std::string& fname )
 					stringstream(f[i].substr(0, pos)) >> s[i];
 					stringstream(f[i].substr(pos+1, strlen(f[i].c_str()))) >> uv[i];
 				}
-				// cout << f[0] << " " << f[1] << " " << f[2] << endl;
-				// cout << "s[0]: " << s[0] << ", s[1]: " << s[1] << ", s[2]: " << s[2] << endl;
-				// cout << "uv[0]: " << uv[0] << ", uv[1]: " << uv[1] << ", uv[2]: " << uv[2] << endl;
 				Triangle t = Triangle( s[0] - 1, s[1] - 1, s[2] - 1 );
 				t.SetUVs(uv[0]-1, uv[1]-1, uv[2]-1);
 				m_faces.push_back( t );
@@ -75,9 +67,7 @@ Mesh::Mesh( const std::string& fname )
 			m_uvs.push_back( glm::vec2 (tx, ty));
 		}
 	}
-	// cout << "num of faces: " << m_faces.size() << endl;
-	// cout << "num of verts: " << m_vertices.size() << endl;
-	// cout << "num of uvs: "  << m_uvs.size() << endl;
+
 	if (m_faces.size() > MIN_FACES_WITHOUT_BOUNDING_VOL) {
 		has_bounding_volume = true;
 		computeBoundingSphere();
@@ -107,37 +97,31 @@ std::ostream& operator<<(std::ostream& out, const Mesh& mesh)
   return out;
 }
 
-bool Mesh::intersect(vec3 eye, vec3 ray_dir, double *t, vec3 *n, vec3 *tg, vec2 *uv){
+bool Mesh::intersect(vec3 eye, vec3 ray_dir, Intersection *isect){
 	// cout << "mesh intersect" << endl;
-	double t_test;
-	vec3 normal;
-	vec3 tangent;
-	vec2 uv_coord;
-	*t = HUGE_VAL;
-	if (!has_bounding_volume || m_bounding_sphere.intersect(eye, ray_dir, &t_test, &normal, &tangent, &uv_coord)) {
+	Intersection tmp_isect = Intersection();
+	isect->t = HUGE_VAL;
+	if (!has_bounding_volume || m_bounding_sphere.intersect(eye, ray_dir, &tmp_isect)) {
 		if (has_bounding_volume && render_bb) {
-			*t = t_test;
-			*n = normal;
+			isect->t = tmp_isect.t;
+			isect->normal = tmp_isect.normal;
 		} else {
 			for (Triangle triangle: m_faces) {
-				if (intersectTriangle(eye, ray_dir, &t_test, triangle, &normal, &tangent, &uv_coord)) {
-					if (t_test < *t) {
-						*t = t_test;
-						*n = normal;
-						*tg = tangent;
-						*uv = uv_coord;
+				if (intersectTriangle(eye, ray_dir, triangle, &tmp_isect)) {
+					if (tmp_isect.t < isect->t) {
+						*isect = tmp_isect;
 					}
 				}
 			}
 		}
-		if (*t < HUGE_VAL) {
+		if (isect->t < HUGE_VAL) {
 			return true;
 		}
 	}
 	return false;
 }
 
-bool Mesh::intersectTriangle(vec3 eye, vec3 ray_dir, double *t, Triangle triangle, vec3 *n, vec3 *tg, vec2* uv) {
+bool Mesh::intersectTriangle(vec3 eye, vec3 ray_dir, Triangle triangle, Intersection *isect) {
 	vec3 col1 = m_vertices.at(triangle.v1) - m_vertices.at(triangle.v2);
 	vec3 col2 = m_vertices.at(triangle.v1) - m_vertices.at(triangle.v3);
 	vec3 X = m_vertices.at(triangle.v1) - eye;
@@ -153,18 +137,15 @@ bool Mesh::intersectTriangle(vec3 eye, vec3 ray_dir, double *t, Triangle triangl
 		return false;
 	}
 	double detT = glm::determinant(mat3(col1, col2, X));
-	*t = detT / detA;
-	if (*t > 0) {
-		*n = glm::normalize(glm::cross(col1, col2));
-		// cout << "v1: " << triangle.v1 << ",v2: " << triangle.v2 << ", v3: " << triangle.v3 << endl;
-		// cout << "uv1: " << triangle.uv1 << ",uv2: " << triangle.uv2 << ", uv3: " << triangle.uv3 << endl;
-		// cout << endl;
+	isect->t = detT / detA;
+	if (isect->t > 0) {
+		isect->normal = glm::normalize(glm::cross(col1, col2));
 		if (has_uv) {
-			*uv = m_uvs.at(triangle.uv1) * (1-beta-gamma) + m_uvs.at(triangle.uv2) * beta + m_uvs.at(triangle.uv3) * gamma;
+			isect->uv = m_uvs.at(triangle.uv1) * (1-beta-gamma) + m_uvs.at(triangle.uv2) * beta + m_uvs.at(triangle.uv3) * gamma;
 			vec2 deltaUV1 =  m_uvs.at(triangle.uv2) - m_uvs.at(triangle.uv1);
 			vec2 deltaUV2 = m_uvs.at(triangle.uv3) - m_uvs.at(triangle.uv1);
 			double r = 1.0/(deltaUV1[0]*deltaUV2[1] - deltaUV1[1]*deltaUV2[0]);
-			*tg = (-col1 * deltaUV2[1] + col2 * deltaUV2[0]) * r;
+			isect->tangent = (-col1 * deltaUV2[1] + col2 * deltaUV2[0]) * r;
 		}
 		return true;
 	}
