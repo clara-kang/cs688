@@ -39,9 +39,10 @@ private:
 	std::vector<Curve> m_curves;
   double wStart = 0.05; // width at the start of curve
   double wEnd = 0.025; // width at the end of curve
+	int max_depth = 6;
 	NonhierSphere m_bounding_sphere;
 
 	void computeBoundingSphere();
-	bool intersectCurve(vec3 eye, vec3 ray_dir, Curve c, Intersection *isect, int depth);
+	bool intersectCurve(vec3 eye, vec3 ray_dir, Curve c, Intersection *isect, double u0, double u1, int depth);
 	void subdivideBezier(const vec3 cp[4], vec3 cpSplit[7]);
 };

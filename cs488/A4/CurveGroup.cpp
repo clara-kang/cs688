@@ -15,6 +15,7 @@ using namespace std;
 using namespace glm;
 
 #include "CurveGroup.hpp"
+#include "polyroots.hpp"
 
 static bool render_bb = false;
 static const int VERTICES_IN_LOOP = 5;
@@ -56,15 +57,13 @@ bool CurveGroup::intersect(vec3 eye, vec3 ray_dir, Intersection *isect){
 			isect->t = tmp_isect.t;
 			isect->normal = tmp_isect.normal;
 		} else {
-			// for (Curve c : m_curves) {
-			// 	if (intersectCurve(eye, ray_dir, &t_test, c, &normal)) {
-			// 		if (t_test < *t) {
-			// 			*t = t_test;
-			// 			// *n = normal;
-			// 			*n = -ray_dir;
-			// 		}
-			// 	}
-			// }
+			for (Curve c : m_curves) {
+				if (intersectCurve(eye, ray_dir, c, &tmp_isect, 0.0, 1.0, max_depth)) {
+					if (tmp_isect.t < isect->t) {
+						*isect = tmp_isect;
+					}
+				}
+			}
 		}
 		if (isect->t < HUGE_VAL) {
 			return true;
@@ -73,67 +72,9 @@ bool CurveGroup::intersect(vec3 eye, vec3 ray_dir, Intersection *isect){
 	return false;
 }
 
-bool isWithin(double x, double y, double xmin, double xmax, double ymin, double ymax) {
-	return xmin <= x && x <= xmax && ymin <= y && y <= ymax;
-}
-
-int intersectBB(double width, double height, double length, vec3 eye, vec3 ray_dir, double *t_above) {
-	double t = HUGE_VAL, t_test;
-	vec3 intersection;
-	int plane = -1; //1:top, 2:bot, 3:left, 4:right, 5:front, 6:back
-	// top plane, y max fixed
-	t_test = -(eye[1] - height)/ray_dir[1];
-	intersection = eye + t_test * ray_dir;
-	if (isWithin(intersection[0], intersection[2], -width/2, width/2, -length, 0.0) && t_test < t && t_test > 0) {
-		t = t_test;
-		plane = 1;
-	}
-	// bot plane, y min fixed
-	t_test = -eye[1]/ray_dir[1];
-	intersection = eye + t_test * ray_dir;
-	if (isWithin(intersection[0], intersection[2], -width/2, width/2, -length, 0.0) && t_test < t && t_test > 0) {
-		t = t_test;
-		plane = 2;
-	}
-	// left plane, x min fixed
-	t_test = -(eye[0] + width/2.0)/ray_dir[0];
-	intersection = eye + t_test * ray_dir;
-	if (isWithin(intersection[1], intersection[2], 0.0, height, -length, 0.0) && t_test < t && t_test > 0) {
-		t = t_test;
-		plane = 3;
-	}
-	// right plane, x max fixed
-	t_test = -(eye[0] - width/2.0)/ray_dir[0];
-	intersection = eye + t_test * ray_dir;
-	if (isWithin(intersection[1], intersection[2], 0.0, height, -length, 0.0) && t_test < t && t_test > 0) {
-		t = t_test;
-		plane = 4;
-	}
-	// front plane
-	t_test = -eye[2]/ray_dir[2]; // z max fixed
-	intersection = eye + t_test * ray_dir;
-	if (isWithin(intersection[0], intersection[1], -width/2.0, width/2.0, 0.0, height) && t_test < t && t_test > 0) {
-		t = t_test;
-		plane = 5;
-	}
-	// back plane
-	t_test = -(eye[2] + length)/ray_dir[2]; // z min fixed
-	intersection = eye + t_test * ray_dir;
-	if (isWithin(intersection[0], intersection[1], -width/2.0, width/2.0, 0.0, height) && t_test < t && t_test > 0) {
-		t = t_test;
-		plane = 6;
-	}
-	*t_above = t;
-	// if (plane == 1) {
-	// 	cout << "t: " << t << endl;
-	// 	cout << "plane : " << plane << endl;
-	// }
-	return plane;
-}
-
-
-bool CurveGroup::intersectCurve(vec3 eye, vec3 ray_dir, Curve c, Intersection *isect, int depth){
-	mat4 to_rays = glm::lookAt(eye, eye + ray_dir, vec3(0.0,1.0,0.0));
+bool CurveGroup::intersectCurve(vec3 eye, vec3 ray_dir, Curve c, Intersection *isect,
+	double u0, double u1, int depth){
+	mat4 to_rays = glm::lookAt(eye, eye + ray_dir, vec3(0.68,0.2,3.0));
 	vec3 cp_rays[4];
 	for (int i = 0; i < 4; i++ ){
 		cp_rays[i] = vec3(to_rays*vec4(c.cp[i],1.0));
@@ -154,9 +95,66 @@ bool CurveGroup::intersectCurve(vec3 eye, vec3 ray_dir, Curve c, Intersection *i
 		subdivideBezier(c.cp, cpSplit);
 		Curve c1 = Curve(cpSplit[0], cpSplit[1], cpSplit[2], cpSplit[3]);
 		Curve c2 = Curve(cpSplit[3], cpSplit[4], cpSplit[5], cpSplit[6]);
-		return intersectCurve(eye, ray_dir, c1, isect, depth-1);
+		Intersection isect1 = Intersection();
+		Intersection isect2 = Intersection();
+		bool intersect_c1 = intersectCurve(eye, ray_dir, c1, &isect1, u0, (u1-u0)/2.0, depth-1);
+		bool intersect_c2 = intersectCurve(eye, ray_dir, c2, &isect2, (u1-u0)/2.0, u1, depth-1);
+		if (intersect_c1 || intersect_c2) {
+			if (isect1.t < isect2.t) {
+				*isect = isect1;
+			} else {
+				*isect = isect2;
+			}
+			return true;
+		} else {
+			return false;
+		}
 	}
+	if (depth == 0) {
+		// approximate with line segment
+		vec3 line = c.cp[3] - c.cp[0];
+		mat4 to_lines = glm::lookAt(c.cp[0], c.cp[0]+line, vec3(0.68,0.2,3.0));
+		vec3 eye_lines = vec3(to_lines * vec4(eye, 1.0));
+		vec3 ray_lines = vec3(to_lines * vec4(ray_dir, 0.0));
+		vec3 trans_line = vec3(to_lines * vec4(line, 0.0));
 
+		// calculate intersection with line segment
+		double width_u0 = wStart + (wEnd-wStart)*u0;
+		double width_u1 = wStart + (wEnd-wStart)*u1;
+		double length = glm::length(line);
+		double radius_slope = (width_u1 - width_u0)/length;
+		double A = pow(ray_lines[0],2.0) + pow(ray_lines[1],2.0) - pow(radius_slope, 2.0);
+		double B = 2.0*eye_lines[0]*ray_lines[0] + 2.0*eye_lines[1]*ray_lines[1] -
+			2.0*pow(radius_slope, 2.0)*eye_lines[2]*ray_lines[2] - 2.0*width_u0*radius_slope;
+		double C = pow(eye_lines[0],2.0) + pow(eye_lines[1],2.0) - pow(width_u0,2.0) -
+			pow(radius_slope,2.0)*pow(eye_lines[2],2.0) - 2.0*width_u0*radius_slope*eye_lines[2];
+		double roots[2];
+		size_t num_roots = quadraticRoots(A,B,C,roots);
+		if (num_roots == 1 && roots[0] > 0) {
+	    isect->t = roots[0];
+	  } else if (num_roots == 2) {
+	    double s_root = std::fmin(roots[0],roots[1]);
+	    double b_root = std::fmax(roots[0],roots[1]);
+	    if (b_root < 0) {
+	      return false;
+	    } else if (s_root < 0 && b_root >= 0){
+	      isect->t = b_root;
+	    } else if (s_root >= 0) {
+	      isect->t = s_root;
+	    }
+	  } else {
+	    return false;
+	  }
+		// check z in range
+		vec3 isect_lines = eye_lines + isect->t * ray_lines;
+		if (isect_lines[2] <= length) {
+			// calculate normal
+			vec3 normal_lines = vec3(isect_lines[0], isect_lines[1], 0.0);
+			isect->normal = vec3(glm::inverse(to_lines) * vec4(normal_lines,0.0));
+			return true;
+		}
+		return false;
+	}
 }
 
 void CurveGroup::subdivideBezier(const vec3 cp[4], vec3 cpSplit[7]) {

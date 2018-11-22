@@ -48,9 +48,9 @@ scene:translate(6, -2, -15)
 -- poly:set_material(test_blue)
 
 -- curves
-poly = gr.curves( 'particles', 'hollow_cube.obj' )
+poly = gr.curves( 'particles', 'curve_test.obj' )
 scene:add_child(poly)
--- poly:scale(0.2,0.2,0.2)
+poly:scale(5,5,5)
 -- poly:translate(-5, 1.618034, 0)
 poly:translate(-5, 0, 0)
 poly:set_material(gold)
