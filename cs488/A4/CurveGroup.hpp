@@ -39,7 +39,7 @@ private:
 	std::vector<Curve> m_curves;
   double wStart = 0.05; // width at the start of curve
   double wEnd = 0.025; // width at the end of curve
-	int max_depth = 6;
+	int max_depth = 3;
 	NonhierSphere m_bounding_sphere;
 
 	void computeBoundingSphere();

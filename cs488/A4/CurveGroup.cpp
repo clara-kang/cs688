@@ -52,20 +52,28 @@ CurveGroup::CurveGroup( const std::string& fname )
 bool CurveGroup::intersect(vec3 eye, vec3 ray_dir, Intersection *isect){
 	// cout << "mesh intersect" << endl;
 	Intersection tmp_isect = Intersection();
+	bool intersect = false;
 	if (m_bounding_sphere.intersect(eye, ray_dir, &tmp_isect)) {
 		if (render_bb) {
 			isect->t = tmp_isect.t;
 			isect->normal = tmp_isect.normal;
 		} else {
+			isect->t == HUGE_VAL;
 			for (Curve c : m_curves) {
-				if (intersectCurve(eye, ray_dir, c, &tmp_isect, 0.0, 1.0, max_depth)) {
+				mat4 to_rays = glm::lookAt(eye, eye + ray_dir, vec3(0.68,0.2,3.0));
+				vec3 cp_rays[4];
+				for (int i = 0; i < 4; i++ ){
+					cp_rays[i] = vec3(to_rays*vec4(c.cp[i],1.0));
+				}
+				if (intersectCurve(eye, ray_dir, Curve(cp_rays[0],cp_rays[1],cp_rays[2],cp_rays[3]), &tmp_isect, 0.0, 1.0, max_depth)) {
+					intersect = true;
 					if (tmp_isect.t < isect->t) {
 						*isect = tmp_isect;
 					}
 				}
 			}
 		}
-		if (isect->t < HUGE_VAL) {
+		if (intersect) {
 			return true;
 		}
 	}
@@ -74,12 +82,8 @@ bool CurveGroup::intersect(vec3 eye, vec3 ray_dir, Intersection *isect){
 
 bool CurveGroup::intersectCurve(vec3 eye, vec3 ray_dir, Curve c, Intersection *isect,
 	double u0, double u1, int depth){
-	mat4 to_rays = glm::lookAt(eye, eye + ray_dir, vec3(0.68,0.2,3.0));
-	vec3 cp_rays[4];
-	for (int i = 0; i < 4; i++ ){
-		cp_rays[i] = vec3(to_rays*vec4(c.cp[i],1.0));
-	}
 
+	vec3 *cp_rays = c.cp;
 	double min_x = std::fmin(std::fmin(cp_rays[0][0], cp_rays[1][0]), std::fmin(cp_rays[2][0], cp_rays[3][0])) - wStart/2.0;
 	double min_y = std::fmin(std::fmin(cp_rays[0][1], cp_rays[1][1]), std::fmin(cp_rays[2][1], cp_rays[3][1])) + wStart/2.0;
 	double max_x = std::fmax(std::fmax(cp_rays[0][0], cp_rays[1][0]), std::fmax(cp_rays[2][0], cp_rays[3][0])) - wStart/2.0;
@@ -114,8 +118,10 @@ bool CurveGroup::intersectCurve(vec3 eye, vec3 ray_dir, Curve c, Intersection *i
 		// approximate with line segment
 		vec3 line = c.cp[3] - c.cp[0];
 		mat4 to_lines = glm::lookAt(c.cp[0], c.cp[0]+line, vec3(0.68,0.2,3.0));
-		vec3 eye_lines = vec3(to_lines * vec4(eye, 1.0));
-		vec3 ray_lines = vec3(to_lines * vec4(ray_dir, 0.0));
+		// vec3 eye_lines = vec3(to_lines * vec4(eye, 1.0));
+		// vec3 ray_lines = vec3(to_lines * vec4(ray_dir, 0.0));
+		vec3 eye_lines = vec3(to_lines * vec4(0.0,0.0,0.0, 1.0));
+		vec3 ray_lines = vec3(to_lines * vec4(0.0,0.0,-glm::length(ray_dir), 0.0));
 		vec3 trans_line = vec3(to_lines * vec4(line, 0.0));
 
 		// calculate intersection with line segment
@@ -151,6 +157,7 @@ bool CurveGroup::intersectCurve(vec3 eye, vec3 ray_dir, Curve c, Intersection *i
 			// calculate normal
 			vec3 normal_lines = vec3(isect_lines[0], isect_lines[1], 0.0);
 			isect->normal = vec3(glm::inverse(to_lines) * vec4(normal_lines,0.0));
+			cout << "true" << endl;
 			return true;
 		}
 		return false;
