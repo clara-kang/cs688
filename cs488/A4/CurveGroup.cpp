@@ -84,11 +84,10 @@ bool CurveGroup::intersectCurve(vec3 eye, vec3 ray_dir, Curve c, Intersection *i
 	double u0, double u1, int depth){
 
 	vec3 *cp_rays = c.cp;
-	double min_x = std::fmin(std::fmin(cp_rays[0][0], cp_rays[1][0]), std::fmin(cp_rays[2][0], cp_rays[3][0])) - wStart/2.0;
-	double min_y = std::fmin(std::fmin(cp_rays[0][1], cp_rays[1][1]), std::fmin(cp_rays[2][1], cp_rays[3][1])) + wStart/2.0;
-	double max_x = std::fmax(std::fmax(cp_rays[0][0], cp_rays[1][0]), std::fmax(cp_rays[2][0], cp_rays[3][0])) - wStart/2.0;
-	double max_y = std::fmax(std::fmax(cp_rays[0][1], cp_rays[1][1]), std::fmax(cp_rays[2][1], cp_rays[3][1])) + wStart/2.0;
-
+	double min_x = std::fmin(std::fmin(cp_rays[0][0], cp_rays[1][0]), std::fmin(cp_rays[2][0], cp_rays[3][0]))-wStart;
+	double min_y = std::fmin(std::fmin(cp_rays[0][1], cp_rays[1][1]), std::fmin(cp_rays[2][1], cp_rays[3][1]))-wStart;
+	double max_x = std::fmax(std::fmax(cp_rays[0][0], cp_rays[1][0]), std::fmax(cp_rays[2][0], cp_rays[3][0]))+wStart;
+	double max_y = std::fmax(std::fmax(cp_rays[0][1], cp_rays[1][1]), std::fmax(cp_rays[2][1], cp_rays[3][1]))+wStart;
 	// if within bounding box
 	if (!(min_x <= 0 && max_x >=0 && min_y <=0 && max_y >= 0)) {
 		return false;
@@ -101,8 +100,9 @@ bool CurveGroup::intersectCurve(vec3 eye, vec3 ray_dir, Curve c, Intersection *i
 		Curve c2 = Curve(cpSplit[3], cpSplit[4], cpSplit[5], cpSplit[6]);
 		Intersection isect1 = Intersection();
 		Intersection isect2 = Intersection();
-		bool intersect_c1 = intersectCurve(eye, ray_dir, c1, &isect1, u0, (u1-u0)/2.0, depth-1);
-		bool intersect_c2 = intersectCurve(eye, ray_dir, c2, &isect2, (u1-u0)/2.0, u1, depth-1);
+		double mid = u0+(u1-u0)/2.0;
+		bool intersect_c1 = intersectCurve(eye, ray_dir, c1, &isect1, u0, mid, depth-1);
+		bool intersect_c2 = intersectCurve(eye, ray_dir, c2, &isect2, mid, u1, depth-1);
 		if (intersect_c1 || intersect_c2) {
 			if (isect1.t < isect2.t) {
 				*isect = isect1;
@@ -115,52 +115,49 @@ bool CurveGroup::intersectCurve(vec3 eye, vec3 ray_dir, Curve c, Intersection *i
 		}
 	}
 	if (depth == 0) {
-		// approximate with line segment
-		vec3 line = c.cp[3] - c.cp[0];
-		mat4 to_lines = glm::lookAt(c.cp[0], c.cp[0]+line, vec3(0.68,0.2,3.0));
-		// vec3 eye_lines = vec3(to_lines * vec4(eye, 1.0));
-		// vec3 ray_lines = vec3(to_lines * vec4(ray_dir, 0.0));
-		vec3 eye_lines = vec3(to_lines * vec4(0.0,0.0,0.0, 1.0));
-		vec3 ray_lines = vec3(to_lines * vec4(0.0,0.0,-glm::length(ray_dir), 0.0));
-		vec3 trans_line = vec3(to_lines * vec4(line, 0.0));
-
-		// calculate intersection with line segment
-		double width_u0 = wStart + (wEnd-wStart)*u0;
-		double width_u1 = wStart + (wEnd-wStart)*u1;
-		double length = glm::length(line);
-		double radius_slope = (width_u1 - width_u0)/length;
-		double A = pow(ray_lines[0],2.0) + pow(ray_lines[1],2.0) - pow(radius_slope, 2.0);
-		double B = 2.0*eye_lines[0]*ray_lines[0] + 2.0*eye_lines[1]*ray_lines[1] -
-			2.0*pow(radius_slope, 2.0)*eye_lines[2]*ray_lines[2] - 2.0*width_u0*radius_slope;
-		double C = pow(eye_lines[0],2.0) + pow(eye_lines[1],2.0) - pow(width_u0,2.0) -
-			pow(radius_slope,2.0)*pow(eye_lines[2],2.0) - 2.0*width_u0*radius_slope*eye_lines[2];
-		double roots[2];
-		size_t num_roots = quadraticRoots(A,B,C,roots);
-		if (num_roots == 1 && roots[0] > 0) {
-	    isect->t = roots[0];
-	  } else if (num_roots == 2) {
-	    double s_root = std::fmin(roots[0],roots[1]);
-	    double b_root = std::fmax(roots[0],roots[1]);
-	    if (b_root < 0) {
-	      return false;
-	    } else if (s_root < 0 && b_root >= 0){
-	      isect->t = b_root;
-	    } else if (s_root >= 0) {
-	      isect->t = s_root;
-	    }
-	  } else {
-	    return false;
-	  }
-		// check z in range
-		vec3 isect_lines = eye_lines + isect->t * ray_lines;
-		if (isect_lines[2] <= length) {
-			// calculate normal
-			vec3 normal_lines = vec3(isect_lines[0], isect_lines[1], 0.0);
-			isect->normal = vec3(glm::inverse(to_lines) * vec4(normal_lines,0.0));
-			cout << "true" << endl;
-			return true;
+		vec3 segment = c.cp[3] - c.cp[0];
+		// get distance between ray and segment
+		vec3 ray2seg = glm::normalize(glm::cross(segment,vec3(0,0,-1)));
+		double D = -glm::dot(ray2seg, c.cp[0]);
+		double dist = D/glm::length(ray2seg);
+		if (abs(dist) < wStart) {
+			double w = -(ray2seg[0] * dist + c.cp[0][0])/segment[0]; // on segment
+			double t = -(ray2seg[2] * dist + c.cp[0][2] + w * segment[2]); // on ray
+			if (t < 0) {
+				return false;
+			}
+			//calculate the actual width
+			double u = u0 + clamp(w, 0.0, 1.0)*(u1-u0);
+			double width = wStart + u * (wEnd - wStart);
+			if (abs(dist) > width) {
+				return false;
+			}
+			vec3 intersection = vec3(0,0,-glm::length(ray_dir)) * t;
+			if (w < 0) {
+				// test against curve start plane
+				vec3 curve_tan = c.cp[1] - c.cp[0];
+				double D = - glm::dot(c.cp[0], curve_tan);
+				double side = glm::dot(curve_tan, intersection) + D;
+				// cout << "side1" << side << endl;
+				if ( side < 0) {
+					return false;
+				}
+			} else if (w > 1.0) {
+				// test against curve end plane
+				vec3 curve_tan = c.cp[2] - c.cp[3];
+				double D = - glm::dot(c.cp[3], curve_tan);
+				double side = glm::dot(curve_tan, intersection) + D;
+				// cout << "side2" << side << endl;
+				if ( side < 0) {
+					return false;
+				}
+			}
+			isect->t = t;
+			vec3 rayntan = glm::cross(vec3(0,0,-1), segment);
+			vec3 normal = glm::normalize(glm::cross(rayntan, segment));
+			isect->normal = normal;
 		}
-		return false;
+
 	}
 }
 

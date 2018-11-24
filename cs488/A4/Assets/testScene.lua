@@ -48,21 +48,21 @@ scene:translate(6, -2, -15)
 -- poly:set_material(test_blue)
 
 -- curves
-poly = gr.curves( 'particles', 'hollow_cube.obj' )
-scene:add_child(poly)
+-- poly = gr.curves( 'particles', 'particle_test.obj' )
+-- scene:add_child(poly)
 -- poly:scale(5,5,5)
--- poly:translate(-5, 1.618034, 0)
-poly:translate(-5, 0, 0)
-poly:set_material(gold)
+-- -- poly:translate(-5, 1.618034, 0)
+-- poly:translate(-5, 0, 0)
+-- poly:set_material(gold)
 
 -- sphere
--- poly = gr.sphere( 'ball' )
--- scene:add_child(poly)
--- poly:scale(3,3,3)
--- poly:translate(-5, 1.618034, 0)
--- poly:set_material(test_blue)
+poly = gr.sphere( 'ball' )
+scene:add_child(poly)
+poly:scale(3,3,3)
+poly:translate(-5, 1.618034, 0)
+poly:set_material(gold)
 
--- cube
+-- -- cube
 -- poly = gr.cube( 'cube' )
 -- scene:add_child(poly)
 -- poly:scale(3,3,3)
