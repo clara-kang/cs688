@@ -9,6 +9,7 @@
 
 #include "SceneNode.hpp"
 #include "GeometryNode.hpp"
+#include "PhongMaterial.hpp"
 #include "Light.hpp"
 #include "Image.hpp"
 using namespace std;
@@ -94,6 +95,18 @@ private:
 	glm::vec3 A4_sample_one_dir(
 		double i, double j, bool resample
 	);
+
+	void reflectAndTransmit(
+		const vec3 & n_normal,
+		const vec3 & ray_dir,
+		const vec3 & intersection,
+		const vec3 & diffuse_color,
+		vec3 *reflection_contrib,
+		vec3 *transmission_contrib,
+		PhongMaterial & phongMat,
+		int count
+	);
+
 	bool A4_pixel_is_edge (glm::vec3 avg, glm::vec3 color);
 	glm::vec3 get_ray_dir(double i, double j);
 	glm::vec3 get_neighbor_pixel_avg(int i, int j, Image & samples);

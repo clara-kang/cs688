@@ -5,7 +5,7 @@ gold = gr.material({0.9, 0.8, 0.4}, {0.8, 0.8, 0.4}, 25)
 grass = gr.material({0.1, 0.7, 0.1}, {0.0, 0.0, 0.0}, 0)
 blue = gr.material({0.7, 0.6, 1}, {0.5, 0.4, 0.8}, 25)
 -- test_grass = gr.material({0.7, 0.6, 1}, {0.0, 0.0, 0.0}, 25, 1.3, 'rock.jpg')
-test_blue = gr.material({0.7, 0.6, 1}, {0.0, 0.0, 0.0}, 25, 0.5, 'rock.jpg', 'leather.jpg')
+test_blue = gr.material({0.7, 0.6, 1}, {0.0, 0.0, 0.0}, 25, 0.5, '', 'leather.jpg')
 
 scene = gr.node('scene')
 scene:rotate('X', 23)
@@ -41,11 +41,11 @@ scene:translate(6, -2, -15)
 -- plane:scale(30, 30, 30)
 
 -- mesh
--- poly = gr.mesh( 'tex_monkey', 'tex_monkey.obj' )
--- scene:add_child(poly)
--- poly:scale(3,3,3)
--- poly:translate(-5, 1.618034, 0)
--- poly:set_material(test_blue)
+poly = gr.mesh( 'tex_monkey', 'tex_monkey.obj' )
+scene:add_child(poly)
+poly:scale(3,3,3)
+poly:translate(-5, 1.618034, 0)
+poly:set_material(test_blue)
 
 -- curves
 -- poly = gr.curves( 'particles', 'particle_test.obj' )
@@ -55,12 +55,12 @@ scene:translate(6, -2, -15)
 -- poly:translate(-5, 0, 0)
 -- poly:set_material(gold)
 
--- sphere
-poly = gr.sphere( 'ball' )
-scene:add_child(poly)
-poly:scale(3,3,3)
-poly:translate(-5, 1.618034, 0)
-poly:set_material(gold)
+-- -- sphere
+-- poly = gr.sphere( 'ball' )
+-- scene:add_child(poly)
+-- poly:scale(3,3,3)
+-- poly:translate(-5, 1.618034, 0)
+-- poly:set_material(test_blue)
 
 -- -- cube
 -- poly = gr.cube( 'cube' )

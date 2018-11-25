@@ -4,7 +4,7 @@
 gold = gr.material({0.9, 0.8, 0.4}, {0.8, 0.8, 0.4}, 25)
 grass = gr.material({0.1, 0.7, 0.1}, {0.0, 0.0, 0.0}, 0)
 blue = gr.material({0.7, 0.6, 1}, {0.5, 0.4, 0.8}, 25)
--- test_grass = gr.material({0.7, 0.6, 1}, {0.0, 0.0, 0.0}, 25, 1.3)
+test_blue = gr.material({0.1, 0.7, 0.1}, {0.0, 0.0, 0.0}, 25, 1.3, '', '')
 
 scene = gr.node('scene')
 scene:rotate('X', 23)
@@ -29,7 +29,7 @@ p2:translate(1.6, 0, -0.4)
 
 s = gr.sphere('s')
 arc:add_child(s)
-s:set_material(gold)
+s:set_material(test_blue)
 s:scale(4, 0.6, 0.6)
 s:translate(0, 4, 0)
 
@@ -39,11 +39,18 @@ scene:add_child(plane)
 plane:set_material(grass)
 plane:scale(30, 30, 30)
 
--- sphere
-poly = gr.mesh( 'poly', 'dodeca.obj' )
-scene:add_child(poly)
-poly:translate(-2, 1.618034, 0)
-poly:set_material(blue)
+-- -- the floor 2!
+-- plane2 = gr.mesh( 'plane2', 'plane.obj' )
+-- scene:add_child(plane2)
+-- plane2:translate(0,-0.0625,0)
+-- plane2:set_material(grass)
+-- plane2:scale(100,100,100)
+
+-- -- sphere
+-- poly = gr.mesh( 'poly', 'dodeca.obj' )
+-- scene:add_child(poly)
+-- poly:translate(-2, 1.618034, 0)
+-- poly:set_material(blue)
 
 -- The lights
 l1 = gr.light({200,200,400}, {0.8, 0.8, 0.8}, {1, 0, 0})

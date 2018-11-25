@@ -9,11 +9,10 @@ using namespace std;
 #include "stb_image.h"
 
 #include "A4.hpp"
-#include "PhongMaterial.hpp"
 #include <time.h>
 
 #define PI 3.14159
-#define EPSILON 1.0
+#define EPSILON 1.0e-2
 
 static const char *BG_FILE_NAME = "bg.jpg";
 static const double COLOR_THRESHOLD = 0.01;
@@ -22,9 +21,10 @@ static const double RESAMPLE_LEVEL = 4;
 static unsigned char *bg_data;
 
 static const bool ADAPTIVE_SAMPLING = false;
-static const bool FRESNEL = false;
+static const bool SOFT_SHADOW = false;
+static const bool FRESNEL = true;
 static const double LIGHT_RADIUS = 0.05;
-static const double SOFT_SHADOW_N = 20;
+static const double SOFT_SHADOW_N = 10;
 static int bg_x, bg_y, channels;
 
 A4::A4(
@@ -288,7 +288,8 @@ glm::vec3 A4::getColor (
 		if (phongMat != NULL) {
 			isPhongMat = true;
 		}
-		Intersection tmp_isect = Intersection();
+		Intersection tmp_isect1 = Intersection();
+		Intersection tmp_isect2 = Intersection();
 		vec3 to_light_dir, start;
 		vec3 color = vec3(0.0, 0.0, 0.0);
 		vec3 intersection = eye + isect.t * ray_dir;
@@ -297,6 +298,12 @@ glm::vec3 A4::getColor (
 		GeometryNode *node;
 		vec3 diffuse_color = material->m_kd;
 		vec3 specular_color = material->m_ks;
+
+		vec3 diffuse_contrib = vec3(0,0,0);
+		vec3 specular_contrib = vec3(0,0,0);
+		vec3 ambient_contrib = vec3(0,0,0);
+		vec3 reflection_contrib = vec3(0,0,0);
+		vec3 transmission_contrib = vec3(0,0,0);
 
 		// do normal mapping if necessary
 		if (isPhongMat && strlen((phongMat->m_normal_fname).c_str()) > 0) {
@@ -318,72 +325,141 @@ glm::vec3 A4::getColor (
 						diffuse_color = readTextureMap(phongMat->m_tex_fname, isect.uv);
 						specular_color = diffuse_color;
 				}
-				// light area
-				vec3 light_u = glm::normalize(glm::cross(to_light_dir, vec3(0,1.0,0)));
-				vec3 light_v = glm::normalize(glm::cross(to_light_dir, light_u));
-				double hit_count = 0.0;
 				start = intersection + EPSILON*to_light_dir;
-				for (int i = 0; i < SOFT_SHADOW_N + 1; i++) {
-					vec3 light_offset = vec3(0.0,0.0,0.0);
-					if (i>0) {
-						light_offset = light_u * randoms.at(i-1) * LIGHT_RADIUS + light_v * randomr.at(i-1) * LIGHT_RADIUS;
+				double hit_count = 0.0;
+				if (SOFT_SHADOW) {
+					// light area
+					vec3 light_u = glm::normalize(glm::cross(to_light_dir, vec3(0,1.0,0)));
+					vec3 light_v = glm::normalize(glm::cross(to_light_dir, light_u));
+					for (int i = 0; i < SOFT_SHADOW_N + 1; i++) {
+						vec3 light_offset = vec3(0.0,0.0,0.0);
+						if (i>0) {
+							light_offset = light_u * randoms.at(i-1) * LIGHT_RADIUS + light_v * randomr.at(i-1) * LIGHT_RADIUS;
+						}
+						tmp_isect1.t = HUGE_VAL;
+						A4_Render_pixel_rec (root, start, glm::normalize(to_light_dir+light_offset), &tmp_isect1, mat4(1.0), mat4(1.0), &node);
+						if (tmp_isect1.t == HUGE_VAL){
+							hit_count++;
+						}
+						if (i == 4 && hit_count == 0) {
+							break;
+						}
 					}
-					tmp_isect.t = HUGE_VAL;
-					A4_Render_pixel_rec (root, start, glm::normalize(to_light_dir+light_offset), &tmp_isect, mat4(1.0), mat4(1.0), &node);
-					if (tmp_isect.t == HUGE_VAL){
-						hit_count++;
+					// diffuse
+					if (hit_count > 0) {
+						diffuse_contrib += light->colour * diffuse_color * normal_dot_light * hit_count / (double)(SOFT_SHADOW_N + 1);
 					}
-					if (i == 4 && hit_count == 0) {
-						break;
+				} else {
+					tmp_isect1.t = HUGE_VAL;
+					A4_Render_pixel_rec (root, start, to_light_dir, &tmp_isect1, mat4(1.0), mat4(1.0), &node);
+					if (tmp_isect1.t == HUGE_VAL) {
+						// diffuse
+						diffuse_contrib += light->colour * diffuse_color * normal_dot_light;
 					}
 				}
-				if (hit_count > 0) {
+				if ((SOFT_SHADOW && hit_count > 0) || (!SOFT_SHADOW && tmp_isect1.t == HUGE_VAL)) {
 					// double dist = glm::length(light->position - intersection);
 					// double atten = 1.0/(light->falloff[0] + light->falloff[1] * dist + light->falloff[2]*pow(dist,2.0));
-					// diffuse
-					color += light->colour * diffuse_color * normal_dot_light * hit_count / (double)(SOFT_SHADOW_N + 1);
 					// Specular
 					double cos_thetaI = glm::dot(n_normal, -ray_dir);
 					vec3 rf_ray_dir = glm::normalize(2.0*cos_thetaI*n_normal + ray_dir);
 					double rf_dot_view = std::fmax(0.0, glm::dot(rf_ray_dir, to_light_dir));
-					color += specular_color * pow(rf_dot_view, material->m_shininess);
-					// }
+					specular_contrib += specular_color * pow(rf_dot_view, material->m_shininess);
 				}
 			}
 		}
-		color += ambient * diffuse_color;
+		ambient_contrib += ambient * diffuse_color;
 		// if reflextive material
 		if (isPhongMat && phongMat->m_rf_index >= 1.0f && count <= REFLECT_MAX_TIMES) {
 			// compute reflective ray
 			double cos_thetaI = glm::dot(n_normal, -ray_dir);
+			double sin_thetaI = sqrt(1-pow(cos_thetaI, 2.0));
+			double sin_thetaT = sin_thetaI/phongMat->m_rf_index;
+			double cos_thetaT = sqrt(1-pow(sin_thetaT, 2.0));
 			vec3 rf_ray_dir = glm::normalize(2.0*cos_thetaI*n_normal + ray_dir);
-			start = intersection + EPSILON*rf_ray_dir;
-			A4_Render_pixel_rec (root, start, rf_ray_dir, &tmp_isect, mat4(1.0), mat4(1.0), &node);
-			if (tmp_isect.t != HUGE_VAL) {
-				if (FRESNEL) {
-					double sin_thetaI = sqrt(1-pow(cos_thetaI, 2.0));
-					double sin_thetaT = sin_thetaI/phongMat->m_rf_index;
-					double r_avg;
-					if (sin_thetaT >= 1) {
-						r_avg = 1;
-					} else {
-						double cos_thetaT = sqrt(1-pow(sin_thetaT, 2.0));
-						double r_par = (phongMat->m_rf_index * cos_thetaI - cos_thetaT)/
-							(phongMat->m_rf_index * cos_thetaI + cos_thetaT);
-						double r_per = (cos_thetaI - phongMat->m_rf_index*cos_thetaT)/
-							(cos_thetaI + phongMat->m_rf_index*cos_thetaT);
-						r_avg = (pow(r_par,2.0) + pow(r_per,2.0))/2.0;
-					}
-					if (r_avg > 0.0) {
-						// cout << "r_avg: " << r_avg << endl;
-						vec3 rf_color = getColor (tmp_isect, start, rf_ray_dir, node->m_material, count+1);
-						color = r_avg * rf_color + (1.0 - r_avg) * color;
-					}
-				} else {
-					vec3 rf_color = getColor (tmp_isect, start, rf_ray_dir, node->m_material, count+1);
-					color = 0.3 * rf_color + (1.0 - 0.3) * color;
-				}
+			vec3 tr_ray_dir = glm::normalize(ray_dir + n_normal*cos_thetaI) * sin_thetaT - glm::normalize(n_normal*cos_thetaI) * cos_thetaT;
+			vec3 start_rf = intersection + EPSILON*rf_ray_dir;
+			vec3 start_tr = intersection + EPSILON*tr_ray_dir;
+			tmp_isect1.t = HUGE_VAL;
+			tmp_isect2.t = HUGE_VAL;
+			A4_Render_pixel_rec (root, start_rf, rf_ray_dir, &tmp_isect1, mat4(1.0), mat4(1.0), &node);
+			A4_Render_pixel_rec (root, start_tr, tr_ray_dir, &tmp_isect2, mat4(1.0), mat4(1.0), &node);
+			if (tmp_isect1.t != HUGE_VAL || tmp_isect2.t != HUGE_VAL) {
+				reflectAndTransmit( n_normal, ray_dir, intersection, diffuse_color,
+					&reflection_contrib, &transmission_contrib, *phongMat, count);
 			}
 		}
-		return color;
+		if (isPhongMat) {
+			return specular_contrib + reflection_contrib + transmission_contrib;
+		} else {
+			return diffuse_contrib + specular_contrib + ambient_contrib;
+		}
+
+}
+
+void A4::reflectAndTransmit(
+	const vec3 & n_normal,
+	const vec3 & ray_dir,
+	const vec3 & intersection,
+	const vec3 & diffuse_color,
+	vec3 *reflection_contrib,
+	vec3 *transmission_contrib,
+	PhongMaterial & phongMat,
+	int count
+) {
+	Intersection tmp_isect1 = Intersection();
+	Intersection tmp_isect2 = Intersection();
+	GeometryNode *node;
+	// compute reflective ray
+	double cos_thetaI = glm::dot(n_normal, -ray_dir);
+	double sin_thetaI = sqrt(1-pow(cos_thetaI, 2.0));
+	double sin_thetaT = sin_thetaI/phongMat.m_rf_index;
+	double cos_thetaT = sqrt(1-pow(sin_thetaT, 2.0));
+	vec3 rf_ray_dir = glm::normalize(2.0*cos_thetaI*n_normal + ray_dir);
+	vec3 tr_ray_dir = glm::normalize(ray_dir + n_normal*cos_thetaI) * sin_thetaT - glm::normalize(n_normal*cos_thetaI) * cos_thetaT;
+	vec3 start_rf = intersection + EPSILON*rf_ray_dir;
+	vec3 start_tr = intersection + EPSILON*tr_ray_dir;
+	tmp_isect1.t = HUGE_VAL;
+	tmp_isect2.t = HUGE_VAL;
+	A4_Render_pixel_rec (root, start_rf, rf_ray_dir, &tmp_isect1, mat4(1.0), mat4(1.0), &node);
+	A4_Render_pixel_rec (root, start_tr, tr_ray_dir, &tmp_isect2, mat4(1.0), mat4(1.0), &node);
+	if (tmp_isect1.t != HUGE_VAL || tmp_isect2.t != HUGE_VAL) {
+		if (FRESNEL) {
+			double r_avg;
+			if (sin_thetaT >= 1) {
+				r_avg = 1;
+			} else {
+				double r_par = (phongMat.m_rf_index * cos_thetaI - cos_thetaT)/
+					(phongMat.m_rf_index * cos_thetaI + cos_thetaT);
+				double r_per = (cos_thetaI - phongMat.m_rf_index*cos_thetaT)/
+					(cos_thetaI + phongMat.m_rf_index*cos_thetaT);
+				r_avg = std::fmin(0.0, (pow(r_par,2.0) + pow(r_per,2.0))/2.0);
+			}
+			// if (r_avg > 0.0) {
+				vec3 rf_color = vec3(0.0,0.0,0.0);
+				vec3 tr_color = vec3(0.0,0.0,0.0);
+				if (tmp_isect1.t != HUGE_VAL && r_avg > 0.0) {
+					// cout << "refect!" << endl;
+					rf_color = getColor (tmp_isect1, start_rf, rf_ray_dir, node->m_material, count+1);
+				}
+				if (tmp_isect2.t != HUGE_VAL) {
+					// cout << "transmit" << endl;
+					tr_color = getColor (tmp_isect2, start_tr, tr_ray_dir, node->m_material, count+1);
+				}
+				*reflection_contrib = r_avg * rf_color;
+				*transmission_contrib = (1.0 - r_avg) * tr_color * diffuse_color;
+				// color += diffuse_color * (r_avg * rf_color + (1.0 - r_avg) * tr_color);
+				// color = tr_color;
+				if (tr_color != vec3(0,0,0)) {
+					cout << "tr_color: " << glm::to_string(tr_color) << endl;
+					cout << "r_avg: " << r_avg << endl;
+				}
+			// }
+		} else {
+			// if (tmp_isect1.t != HUGE_VAL) {
+			// 	vec3 rf_color = getColor (tmp_isect1, start_rf, rf_ray_dir, node->m_material, count+1);
+			// 	color = 0.3 * rf_color + (1.0 - 0.3) * color;
+			// }
+		}
+	}
 }
