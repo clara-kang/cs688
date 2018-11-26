@@ -78,7 +78,9 @@ private:
 		const vec3 & eye,
 		const vec3 & ray_dir,
 		Material *material,
-		int count);
+		int count,
+		bool from_inside
+	);
 
 	void A4_Render_pixel_rec(
 			SceneNode *root,
@@ -104,7 +106,8 @@ private:
 		vec3 *reflection_contrib,
 		vec3 *transmission_contrib,
 		PhongMaterial & phongMat,
-		int count
+		int count,
+		bool from_inside
 	);
 
 	bool A4_pixel_is_edge (glm::vec3 avg, glm::vec3 color);

@@ -13,7 +13,7 @@ PhongMaterial::PhongMaterial(
 		m_tex_fname(tex_fname),
 		m_normal_fname(m_normal_fname)
 {
-	cout << "m_tex_fname: " << m_tex_fname << endl;
+	// cout << "m_tex_fname: " << m_tex_fname << endl;
 }
 
 PhongMaterial::~PhongMaterial()
