@@ -16,7 +16,7 @@ using namespace std;
 
 static const char *BG_FILE_NAME = "bg.jpg";
 static const double COLOR_THRESHOLD = 0.01;
-static const double REFLECT_MAX_TIMES = 4;
+static const double REFLECT_MAX_TIMES = 3;
 static const double RESAMPLE_LEVEL = 4;
 static unsigned char *bg_data;
 
@@ -24,7 +24,9 @@ static const bool ADAPTIVE_SAMPLING = false;
 static const bool SOFT_SHADOW = false;
 static const bool FRESNEL = true;
 static const double LIGHT_RADIUS = 0.05;
+static const double GLOSSY_REFL_FRACTION = 0.4;
 static const double SOFT_SHADOW_N = 10;
+static const double GLOSSY_REFL_N = 10;
 static int bg_x, bg_y, channels;
 
 A4::A4(
@@ -117,11 +119,11 @@ glm::vec3 A4::A4_sample_one_dir(
 	vec3 ray_dir = get_ray_dir(i,j);
 	Intersection isect = Intersection();
 	GeometryNode *obj;
-	A4_Render_pixel_rec (root, eye, ray_dir, &isect, mat4(1.0), mat4(1.0), &obj);
+	A4_Render_pixel_rec (false, root, eye, ray_dir, &isect, mat4(1.0), mat4(1.0), &obj);
 	// if intersect object
 	if (isect.t < HUGE_VAL) {
 		// get color
-		vec3 color = getColor(isect, eye, ray_dir, obj->m_material,0,false);
+		vec3 color = getColor(isect, eye, ray_dir, obj->m_material,0,0);
 		// cout << "color: " << glm::to_string(color) << endl;
 		if (!resample) {
 			not_bg_map[(int)(j*w+i)] = true;
@@ -211,6 +213,7 @@ void A4::A4_adaptive_sampling( Image & samples)	{
 }
 
 void A4::A4_Render_pixel_rec(
+	bool shadow_ray,
 	SceneNode *root,
 	const glm::vec3 & start,
 	const glm::vec3 & ray_dir,
@@ -225,19 +228,25 @@ void A4::A4_Render_pixel_rec(
 		GeometryNode * gnode = static_cast<GeometryNode *>(root);
 		Primitive *prim = gnode->m_primitive;
 		Intersection tmp_isect = Intersection();
-		bool intersect = prim->intersect(vec3(T_new*vec4(start,1.0)),
-			vec3(T_new*vec4(ray_dir,0.0)), &tmp_isect);
-		if (intersect && tmp_isect.t < isect->t) {
-			isect->t = tmp_isect.t;
-			isect->normal = vec3(T_n_new*vec4(tmp_isect.normal, 0.0));
-			isect->tangent = vec3(glm::inverse(T_new)*vec4(tmp_isect.tangent, 0.0));
-			isect->uv = tmp_isect.uv;
-			// cout << "isect->uv: " << glm::to_string(isect->uv) << endl;
-			*obj = gnode;
+		// test dielectric
+		Dielectric *dielectric = dynamic_cast<Dielectric *>(gnode->m_material);
+		if (dielectric == NULL || !shadow_ray) {
+			bool intersect = prim->intersect(vec3(T_new*vec4(start,1.0)),
+				vec3(T_new*vec4(ray_dir,0.0)), &tmp_isect);
+			if (intersect && tmp_isect.t < isect->t) {
+				isect->t = tmp_isect.t;
+				isect->normal = vec3(T_n_new*vec4(tmp_isect.normal, 0.0));
+				isect->tangent = vec3(glm::inverse(T_new)*vec4(tmp_isect.tangent, 0.0));
+				isect->uv = tmp_isect.uv;
+				// cout << "isect->uv: " << glm::to_string(isect->uv) << endl;
+				*obj = gnode;
+			}
 		}
 	}
-	for (SceneNode *child : root->children) {
-		A4::A4_Render_pixel_rec(child, start, ray_dir, isect, T_new, T_n_new, obj);
+	if (!shadow_ray || isect->t == HUGE_VAL) {
+		for (SceneNode *child : root->children) {
+			A4::A4_Render_pixel_rec(shadow_ray, child, start, ray_dir, isect, T_new, T_n_new, obj);
+		}
 	}
 }
 
@@ -283,11 +292,13 @@ glm::vec3 A4::getColor (
 	const vec3 & eye,
 	const vec3 & ray_dir,
 	Material *material,
-	int count,
-	bool from_inside
+	double accum_dist,
+	int count
 ) {
 		bool isPhongMat = false;
 		PhongMaterial *phongMat = dynamic_cast<PhongMaterial *>(material);
+		Dielectric *dielectric = dynamic_cast<Dielectric *>(material);
+		Glossy *glossy = dynamic_cast<Glossy *>(material);
 		if (phongMat != NULL) {
 			isPhongMat = true;
 		}
@@ -331,6 +342,9 @@ glm::vec3 A4::getColor (
 						specular_color = diffuse_color;
 				}
 				start = intersection + EPSILON*to_light_dir;
+				// attenuation
+				double dist = accum_dist + glm::length(light->position - intersection);
+				double atten = 1.0/(light->falloff[0] + light->falloff[1] * dist + light->falloff[2]*pow(dist,2.0));
 				double hit_count = 0.0;
 				if (SOFT_SHADOW) {
 					// light area
@@ -342,7 +356,7 @@ glm::vec3 A4::getColor (
 							light_offset = light_u * randoms.at(i-1) * LIGHT_RADIUS + light_v * randomr.at(i-1) * LIGHT_RADIUS;
 						}
 						tmp_isect1.t = HUGE_VAL;
-						A4_Render_pixel_rec (root, start, glm::normalize(to_light_dir+light_offset), &tmp_isect1, mat4(1.0), mat4(1.0), &node);
+						A4_Render_pixel_rec (true, root, start, glm::normalize(to_light_dir+light_offset), &tmp_isect1, mat4(1.0), mat4(1.0), &node);
 						if (tmp_isect1.t == HUGE_VAL){
 							hit_count++;
 						}
@@ -352,43 +366,97 @@ glm::vec3 A4::getColor (
 					}
 					// diffuse
 					if (hit_count > 0) {
-						diffuse_contrib += light->colour * diffuse_color * normal_dot_light * hit_count / (double)(SOFT_SHADOW_N + 1);
+						diffuse_contrib += light->colour * diffuse_color * atten * normal_dot_light * hit_count / (double)(SOFT_SHADOW_N + 1);
 					}
 				} else {
+					// no soft shadow
 					tmp_isect1.t = HUGE_VAL;
-					//A4_Render_pixel_rec (root, start, to_light_dir, &tmp_isect1, mat4(1.0), mat4(1.0), &node);
-					// if (tmp_isect1.t == HUGE_VAL) {
+					A4_Render_pixel_rec (true, root, start, to_light_dir, &tmp_isect1, mat4(1.0), mat4(1.0), &node);
+					if (tmp_isect1.t == HUGE_VAL) {
 						// diffuse
-						diffuse_contrib += light->colour * diffuse_color * normal_dot_light;
-					// }
+						diffuse_contrib += light->colour * diffuse_color * normal_dot_light * atten;
+					}
 				}
 				if ((SOFT_SHADOW && hit_count > 0) || (!SOFT_SHADOW && tmp_isect1.t == HUGE_VAL)) {
-					// double dist = glm::length(light->position - intersection);
-					// double atten = 1.0/(light->falloff[0] + light->falloff[1] * dist + light->falloff[2]*pow(dist,2.0));
 					// Specular
 					double cos_thetaI = glm::dot(n_normal, -ray_dir);
 					vec3 rf_ray_dir = glm::normalize(2.0*cos_thetaI*n_normal + ray_dir);
 					double rf_dot_view = std::fmax(0.0, glm::dot(rf_ray_dir, to_light_dir));
-					specular_contrib += specular_color * pow(rf_dot_view, material->m_shininess);
+					specular_contrib += specular_color * pow(rf_dot_view, material->m_shininess) * atten;
 				}
 			}
 		}
 		ambient_contrib += ambient * diffuse_color;
+		int hit_count = 0;
 		// if reflextive material
-		if (isPhongMat && phongMat->m_rf_index >= 1.0f && count <= REFLECT_MAX_TIMES) {
+		if (dielectric != NULL && dielectric->m_rf_index >= 1.0f && count <= REFLECT_MAX_TIMES) {
 			reflectAndTransmit( n_normal, ray_dir, intersection, diffuse_color,
-					&reflection_contrib, &transmission_contrib, *phongMat, count, from_inside);
+					&reflection_contrib, &transmission_contrib, *dielectric, accum_dist, count);
+		} else if (glossy != NULL && count <= REFLECT_MAX_TIMES) {
+			hit_count = glossyReflection(n_normal, ray_dir, intersection, *glossy, accum_dist, count, &reflection_contrib);
 		}
 
-		if (isPhongMat) {
+		if (dielectric != NULL) {
 			// cout << "reflection_contrib + transmission_contrib" << glm::to_string(reflection_contrib + transmission_contrib) << endl;
-			return specular_contrib + reflection_contrib + transmission_contrib;
-		} else {
+			return specular_contrib + (reflection_contrib + transmission_contrib)*diffuse_contrib;
+		} else if (glossy != NULL) {
+			double reflection_fraction = hit_count*(GLOSSY_REFL_FRACTION/GLOSSY_REFL_N);
+			return specular_contrib + reflection_fraction * reflection_contrib * diffuse_contrib+
+				(1.0-reflection_fraction) * diffuse_contrib + ambient_contrib;
+		}else {
 			return diffuse_contrib + specular_contrib + ambient_contrib;
 		}
 
 }
 
+int A4::glossyReflection(
+	const vec3 & n_normal,
+	const vec3 & ray_dir,
+	const vec3 & intersection,
+	Glossy & glossy_mat,
+	double accum_dist,
+	int count,
+	vec3 *reflection_contrib
+) {
+	// cout << "count: " << count << endl;
+	vec3 offset, ofs_rf_ray_dir, start_rf;
+	GeometryNode *node1;
+	Intersection tmp_isect1 = Intersection();
+	int hit_count = 0;
+	vec3 rf_avg_color = vec3(0,0,0);
+
+	double cos_thetaI = glm::dot(n_normal, -ray_dir);
+	vec3 rf_ray_dir = glm::normalize(2.0*cos_thetaI*n_normal + ray_dir);
+
+	vec3 u = glm::normalize(glm::cross(rf_ray_dir, vec3(0,1,0)));
+	vec3 v = glm::normalize(glm::cross(rf_ray_dir, u));
+
+	for (int i = 0; i < GLOSSY_REFL_N; i++) {
+		if (i > 0) {
+			offset = u * randoms.at(i) * glossy_mat.m_gloss_index + v * randomr.at(i) * glossy_mat.m_gloss_index;
+		} else {
+			offset = vec3(0,0,0);
+		}
+		// cout << "glossy_mat.m_gloss_index: " << glossy_mat.m_gloss_index << endl;
+		// cout << "offset: " << glm::to_string(offset) << endl;
+		ofs_rf_ray_dir = glm::normalize(rf_ray_dir + offset);
+		start_rf = intersection + EPSILON*ofs_rf_ray_dir;
+		tmp_isect1.t = HUGE_VAL;
+		A4_Render_pixel_rec (false, root, start_rf, ofs_rf_ray_dir, &tmp_isect1, mat4(1.0), mat4(1.0), &node1);
+		if (tmp_isect1.t < HUGE_VAL) {
+			hit_count ++;
+			rf_avg_color += getColor (tmp_isect1, start_rf, ofs_rf_ray_dir, node1->m_material, accum_dist+tmp_isect1.t, count+1);
+		}
+	}
+	if (hit_count > 0) {
+		cout << "hit: " << hit_count << endl;
+		*reflection_contrib = rf_avg_color/(double)hit_count;
+		// cout <<"reflection_contrib: " << glm::to_string(*reflection_contrib) << endl;
+	} else {
+		*reflection_contrib = vec3(0,0,0);
+	}
+	return hit_count;
+}
 void A4::reflectAndTransmit(
 	const vec3 & n_normal,
 	const vec3 & ray_dir,
@@ -396,9 +464,9 @@ void A4::reflectAndTransmit(
 	const vec3 & diffuse_color,
 	vec3 *reflection_contrib,
 	vec3 *transmission_contrib,
-	PhongMaterial & phongMat,
-	int count,
-	bool from_inside
+	Dielectric & dielectric,
+	double accum_dist,
+	int count
 ) {
 	Intersection tmp_isect1 = Intersection();
 	tmp_isect1.t = HUGE_VAL;
@@ -414,27 +482,26 @@ void A4::reflectAndTransmit(
 
 	// compute reflective ray
 	cos_thetaI = glm::dot(n_normal, -ray_dir);
-	from_inside = cos_thetaI < 0;
+	// cout << "n_normal: " << glm::to_string(n_normal) << endl;
+	// cout << "ray_dir: " << glm::to_string(ray_dir) << endl;
+	// cout << "cos_thetaI: " << cos_thetaI << endl;
+	bool from_inside = cos_thetaI < 0;
 
 	if (from_inside) {
 		eta_T = 1.0;
-		eta_I = phongMat.m_rf_index;
+		eta_I = dielectric.m_rf_index;
 		cos_thetaI = - cos_thetaI;
 		normal = -n_normal;
-		// cout << "normal dot ray: " << glm::dot(n_normal, -ray_dir) << endl;
 	} else {
 		eta_I = 1.0;
-		eta_T = phongMat.m_rf_index;
+		eta_T = dielectric.m_rf_index;
 		normal = n_normal;
 	}
 
 	sin_thetaI = sqrt(1-pow(cos_thetaI, 2.0));
 	sin_thetaT = sin_thetaI * eta_I/eta_T;
 	cos_thetaT = sqrt(1-pow(sin_thetaT, 2.0));
-	// if (from_inside) {
-	// 	cout << "sin_thetaT: " << sin_thetaT << endl;
-	// 	cout << "sin_thetaI: " << sin_thetaI << endl;
-	// }
+
 	if (sin_thetaT >= 1.0) {
 		cout << "total_internal!" << endl;
 		r_avg = 1.0;
@@ -446,65 +513,32 @@ void A4::reflectAndTransmit(
 			(eta_I * cos_thetaI + eta_T*cos_thetaT);
 		r_avg = (pow(r_par,2.0) + pow(r_per,2.0))/2.0;
 		r_avg = std::fmin(std::fmax(r_avg, 0.0), 1.0);
-		// cout << "r_avg: " << r_avg << endl;
 		// transmission
 		if (r_avg < 1) {
 			tr_ray_dir = glm::normalize(ray_dir + normal*cos_thetaI) * sin_thetaT - glm::normalize(normal*cos_thetaI) * cos_thetaT;
-			// if (from_inside) {
-			// 	cout << "from_inside, transmission " << endl;
-			// 	cout << "direction: " << glm::dot(n_normal, tr_ray_dir) << endl;;
-			// }
 			start_tr = intersection + EPSILON*tr_ray_dir;
 			tmp_isect2.t = HUGE_VAL;
-			// cout << "ray_dir: " << glm::to_string(ray_dir) << endl;
-			// cout << "tr_ray_dir: " << glm::to_string(tr_ray_dir) << endl;
-			A4_Render_pixel_rec (root, start_tr, tr_ray_dir, &tmp_isect2, mat4(1.0), mat4(1.0), &node1);
-			// cout << "diffuse: " << glm::to_string(diffuse_color) << endl;
-			if (tmp_isect2.t < HUGE_VAL) {
-				// cout << "transmission ray hit" << endl;
-				// cout << "mat color: " << glm::to_string(node->m_material->m_kd) << endl;
-				// cout << "node1: " << node1->m_name << endl;
-			}
+			A4_Render_pixel_rec (false, root, start_tr, tr_ray_dir, &tmp_isect2, mat4(1.0), mat4(1.0), &node1);
 		}
 	}
 	// reflection
 	if (r_avg > 0) {
 		rf_ray_dir = glm::normalize(2.0*cos_thetaI*normal + ray_dir);
 		start_rf = intersection + EPSILON*rf_ray_dir;
-		A4_Render_pixel_rec (root, start_rf, rf_ray_dir, &tmp_isect1, mat4(1.0), mat4(1.0), &node2);
+		A4_Render_pixel_rec (false, root, start_rf, rf_ray_dir, &tmp_isect1, mat4(1.0), mat4(1.0), &node2);
 	}
 	if (tmp_isect1.t != HUGE_VAL || tmp_isect2.t != HUGE_VAL) {
 		if (FRESNEL) {
 			vec3 rf_color = vec3(0.0,0.0,0.0);
 			vec3 tr_color = vec3(0.0,0.0,0.0);
 			if (tmp_isect1.t != HUGE_VAL && r_avg > 0) {
-				// cout << "reflect!" << endl;
-				rf_color = getColor (tmp_isect1, start_rf, rf_ray_dir, node2->m_material, count+1, from_inside);
+				rf_color = getColor (tmp_isect1, start_rf, rf_ray_dir, node2->m_material, accum_dist+tmp_isect1.t, count+1);
 			}
 			if (tmp_isect2.t < HUGE_VAL) {
-				// cout << "transmit2" << endl;
-				tr_color = getColor (tmp_isect2, start_tr, tr_ray_dir, node1->m_material, count+1, !from_inside);
-				// if (from_inside) {
-				// cout << "count: " << count << endl;
-				// cout << "tr_color: " << glm::to_string(tr_color)  << endl;
-				// 	cout << "fraction: " << (1.0 - r_avg) << endl;
-				// }
+				tr_color = getColor (tmp_isect2, start_tr, tr_ray_dir, node1->m_material, accum_dist+tmp_isect2.t, count+1);
 			}
 			*reflection_contrib = r_avg * rf_color;
 			*transmission_contrib = (1.0 - r_avg) * tr_color;
-			if (from_inside) {
-				// cout << "from_inside" << endl;
-			}
-			// if (from_inside) {
-				// cout << "reflection_contrib: " << glm::to_string(*reflection_contrib)  << endl;
-				// cout << "transmission_contrib: " << glm::to_string(*transmission_contrib)  << endl;
-				// cout << endl;
-			// }
-		} else {
-			// if (tmp_isect1.t != HUGE_VAL) {
-			// 	vec3 rf_color = getColor (tmp_isect1, start_rf, rf_ray_dir, node->m_material, count+1);
-			// 	color = 0.3 * rf_color + (1.0 - 0.3) * color;
-			// }
 		}
 	}
 }

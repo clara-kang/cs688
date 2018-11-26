@@ -407,15 +407,26 @@ int gr_material_cmd(lua_State* L)
 
     luaL_newmetatable(L, "gr.material");
     lua_setmetatable(L, -2);
-  } else if (stack_size == 7) {
-    // cout << "phong mat!!" << endl;
-    double rf_index = luaL_checknumber(L, 4);
-    const char* tex_fname = luaL_checkstring(L, 5);
-    const char* normal_fname = luaL_checkstring(L, 6);
+  } else if (stack_size == 9) {
+    int dielectric = luaL_checknumber(L, 4);
+    int glossy = luaL_checknumber(L, 5);
+    double index = luaL_checknumber(L, 6);
+    const char* tex_fname = luaL_checkstring(L, 7);
+    const char* normal_fname = luaL_checkstring(L, 8);
     // cout << "tex_fname: " << tex_fname << endl;
-    data->material = new PhongMaterial(glm::vec3(kd[0], kd[1], kd[2]),
-                                       glm::vec3(ks[0], ks[1], ks[2]),
-                                       shininess, rf_index, tex_fname, normal_fname);
+    if (dielectric == 1) {
+      data->material = new Dielectric(glm::vec3(kd[0], kd[1], kd[2]),
+                                         glm::vec3(ks[0], ks[1], ks[2]),
+                                         shininess, index, tex_fname, normal_fname);
+    } else if (glossy == 1) {
+      data->material = new Glossy(glm::vec3(kd[0], kd[1], kd[2]),
+                                         glm::vec3(ks[0], ks[1], ks[2]),
+                                         shininess, index, tex_fname, normal_fname);
+    } else {
+      data->material = new PhongMaterial(glm::vec3(kd[0], kd[1], kd[2]),
+                                         glm::vec3(ks[0], ks[1], ks[2]),
+                                         shininess, tex_fname, normal_fname);
+    }
 
     luaL_newmetatable(L, "gr.material");
     lua_setmetatable(L, -2);

@@ -5,7 +5,7 @@ gold = gr.material({0.9, 0.8, 0.4}, {0.8, 0.8, 0.4}, 25)
 grass = gr.material({0.1, 0.7, 0.1}, {0.0, 0.0, 0.0}, 0)
 blue = gr.material({0.7, 0.6, 1}, {0.5, 0.4, 0.8}, 25)
 -- test_grass = gr.material({0.7, 0.6, 1}, {0.0, 0.0, 0.0}, 25, 1.3, 'rock.jpg')
-test_blue = gr.material({0.7, 0.6, 1}, {0.0, 0.0, 0.0}, 25, 0.5, '', 'leather.jpg')
+test_blue = gr.material({0.7, 0.6, 1}, {0.0, 0.0, 0.0}, 25, 0, 0, 0.5, '', 'leather.jpg')
 
 scene = gr.node('scene')
 scene:rotate('X', 23)

@@ -78,18 +78,19 @@ private:
 		const vec3 & eye,
 		const vec3 & ray_dir,
 		Material *material,
-		int count,
-		bool from_inside
+		double accum_dist,
+		int count
 	);
 
 	void A4_Render_pixel_rec(
-			SceneNode *root,
-			const glm::vec3 & start,
-			const glm::vec3 & ray_dir,
-			Intersection *isect,
-			mat4 T,
-			mat4 T_n,
-			GeometryNode **obj
+		bool shadow_ray,
+		SceneNode *root,
+		const glm::vec3 & start,
+		const glm::vec3 & ray_dir,
+		Intersection *isect,
+		mat4 T,
+		mat4 T_n,
+		GeometryNode **obj
 	);
 	void A4_adaptive_sampling(
 		Image & samples
@@ -105,9 +106,19 @@ private:
 		const vec3 & diffuse_color,
 		vec3 *reflection_contrib,
 		vec3 *transmission_contrib,
-		PhongMaterial & phongMat,
+		Dielectric & dielectric,
+		double accum_dist,
+		int count
+	);
+
+	int glossyReflection(
+		const vec3 & n_normal,
+		const vec3 & ray_dir,
+		const vec3 & intersection,
+		Glossy & glossy_mat,
+		double accum_dist,
 		int count,
-		bool from_inside
+		vec3 *reflection_contrib
 	);
 
 	bool A4_pixel_is_edge (glm::vec3 avg, glm::vec3 color);
