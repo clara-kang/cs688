@@ -317,7 +317,7 @@ int gr_light_cmd(lua_State* L)
 
   gr_light_ud* data = (gr_light_ud*)lua_newuserdata(L, sizeof(gr_light_ud));
   data->light = 0;
-
+  int stack_size = lua_gettop(L);
 
   Light l;
 
@@ -328,6 +328,10 @@ int gr_light_cmd(lua_State* L)
 
   l.colour = glm::vec3(col[0], col[1], col[2]);
 
+  if (stack_size > 4) {
+    int photon_num = luaL_checknumber(L, 4);
+    l.photon_num = photon_num;
+  }
   data->light = new Light(l);
 
   luaL_newmetatable(L, "gr.light");

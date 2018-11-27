@@ -12,6 +12,8 @@
 #include "PhongMaterial.hpp"
 #include "Light.hpp"
 #include "Image.hpp"
+#include "PhotonMap.hpp"
+
 using namespace std;
 class A4 {
 struct image_data {
@@ -72,6 +74,8 @@ private:
 	glm::vec3 right;
 	bool *not_bg_map;
 	double w,h;
+
+	PhotonMap photon_map;
 
 	glm::vec3 getColor (
 		Intersection &isect,

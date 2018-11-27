@@ -13,11 +13,12 @@ Light::Light()
   falloff[0] = 1.0;
   falloff[1] = 0.0;
   falloff[2] = 0.0;
+  photon_num = 0;
 }
 
 std::ostream& operator<<(std::ostream& out, const Light& l)
 {
-  out << "L[" << glm::to_string(l.colour) 
+  out << "L[" << glm::to_string(l.colour)
   	  << ", " << glm::to_string(l.position) << ", ";
   for (int i = 0; i < 3; i++) {
     if (i > 0) out << ", ";

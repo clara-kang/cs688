@@ -23,6 +23,7 @@ static unsigned char *bg_data;
 static const bool ADAPTIVE_SAMPLING = false;
 static const bool SOFT_SHADOW = false;
 static const bool FRESNEL = true;
+static const bool PHOTON_MAP = true;
 static const double LIGHT_RADIUS = 0.05;
 static const double GLOSSY_REFL_FRACTION = 0.4;
 static const double SOFT_SHADOW_N = 10;
@@ -53,7 +54,8 @@ view(view),
 up(up),
 fovy(fovy),
 ambient(ambient),
-lights(lights) {
+lights(lights),
+photon_map(PhotonMap(lights, root)) {
 	// load bg image
 	bg_data = stbi_load(BG_FILE_NAME, &bg_x, &bg_y, &channels, 0);
 	pixsize_over_d = 2.0 * tan(fovy*PI/(2.0*180.0)) / image.height();
@@ -85,7 +87,13 @@ void A4::A4_Render(
 	vec3 normal, intersection;
 	GeometryNode *obj;
 	double t;
-	int i = 500, j = 500;
+
+	// create photon map
+	if (PHOTON_MAP) {
+		photon_map.castPhotons();
+		photon_map.renderPhotonMap();
+		return;
+	}
 	for (int i = 0; i < w; i++) {
 		for (int j = 0; j < h; j++) {
 			// cout << "i: " << i << ",j: " << j << endl;
@@ -437,8 +445,6 @@ int A4::glossyReflection(
 		} else {
 			offset = vec3(0,0,0);
 		}
-		// cout << "glossy_mat.m_gloss_index: " << glossy_mat.m_gloss_index << endl;
-		// cout << "offset: " << glm::to_string(offset) << endl;
 		ofs_rf_ray_dir = glm::normalize(rf_ray_dir + offset);
 		start_rf = intersection + EPSILON*ofs_rf_ray_dir;
 		tmp_isect1.t = HUGE_VAL;
@@ -449,7 +455,6 @@ int A4::glossyReflection(
 		}
 	}
 	if (hit_count > 0) {
-		cout << "hit: " << hit_count << endl;
 		*reflection_contrib = rf_avg_color/(double)hit_count;
 		// cout <<"reflection_contrib: " << glm::to_string(*reflection_contrib) << endl;
 	} else {
