@@ -102,7 +102,7 @@ void PhotonMap::renderPhotonMap() {
     if (y_cos > half_cos_fov && x_cos > half_cos_fov) {
       float y_sin = sqrt(1-pow(y_cos, 2.0));
       float x_sin = sqrt(1-pow(x_cos, 2.0));
-      if (photon.pos.y > 0) {
+      if (photon.pos.y < 0) {
         y_sin = -y_sin;
       }
       if (photon.pos.x < 0) {
@@ -110,7 +110,7 @@ void PhotonMap::renderPhotonMap() {
       }
       // cout << "y_sin: " << y_sin << ",x_sin: " << x_sin << endl;
       i = (int)((x_sin / half_sin_fov) * size / 2.0 + size / 2.0);
-      j = (int)((y_sin / half_sin_fov) * size / 2.0 + size / 2.0);
+      j = (int)(-(y_sin / half_sin_fov) * size / 2.0 + size / 2.0);
       // cout << "i: " << i << ",j: " << j << endl;
       for ( int k = 0; k < 3; k++) {
         image((uint)i, (uint)j, k) = 1.0;

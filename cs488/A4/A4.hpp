@@ -99,10 +99,10 @@ private:
 	void A4_adaptive_sampling(
 		Image & samples
 	);
-	glm::vec3 A4_sample_one_dir(
+	glm::vec3 A4_sample_one_pixel(
 		double i, double j, bool resample
 	);
-
+	glm::vec3 A4_sample_one_dir(vec3 & ray_dir, vec3 & eye, int i, int j, bool resample);
 	void reflectAndTransmit(
 		const vec3 & n_normal,
 		const vec3 & ray_dir,

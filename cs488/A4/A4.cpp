@@ -20,14 +20,19 @@ static const double REFLECT_MAX_TIMES = 3;
 static const double RESAMPLE_LEVEL = 4;
 static unsigned char *bg_data;
 
+// TODO: Parse params instead
 static const bool ADAPTIVE_SAMPLING = false;
 static const bool SOFT_SHADOW = false;
 static const bool FRESNEL = true;
-static const bool PHOTON_MAP = true;
+static const bool PHOTON_MAP = false;
+static const bool DEPTH_OF_FIELD = false;
 static const double LIGHT_RADIUS = 0.05;
 static const double GLOSSY_REFL_FRACTION = 0.4;
 static const double SOFT_SHADOW_N = 10;
 static const double GLOSSY_REFL_N = 10;
+static const double DEPTH_OF_FIELD_N = 10;
+static const double APERTURE_SIZE = 100.0;
+static const double FOCUS = -0.0;
 static int bg_x, bg_y, channels;
 
 A4::A4(
@@ -97,7 +102,7 @@ void A4::A4_Render(
 	for (int i = 0; i < w; i++) {
 		for (int j = 0; j < h; j++) {
 			// cout << "i: " << i << ",j: " << j << endl;
-			vec3 color = A4_sample_one_dir((double)i,(double)j, false);
+			vec3 color = A4_sample_one_pixel((double)i,(double)j, false);
 			for (int k = 0; k < 3; k++) {
 					primary_samples((uint)i, (uint)j, k) = color[k];
 			}
@@ -120,19 +125,15 @@ glm::vec3 A4::get_ray_dir(double i, double j) {
 	return ray_dir;
 }
 
-// given pixel location, calculate ray direction and sample the color
-glm::vec3 A4::A4_sample_one_dir(
-	double i, double j, bool resample
-) {
-	vec3 ray_dir = get_ray_dir(i,j);
+glm::vec3 A4::A4_sample_one_dir(vec3 & ray_dir, vec3 & start, int i, int j, bool resample) {
 	Intersection isect = Intersection();
 	GeometryNode *obj;
-	A4_Render_pixel_rec (false, root, eye, ray_dir, &isect, mat4(1.0), mat4(1.0), &obj);
+	A4_Render_pixel_rec (false, root, start, ray_dir, &isect, mat4(1.0), mat4(1.0), &obj);
 	// if intersect object
+	// cout << "ray_dir: " << glm::to_string(ray_dir) << endl;
 	if (isect.t < HUGE_VAL) {
 		// get color
-		vec3 color = getColor(isect, eye, ray_dir, obj->m_material,0,0);
-		// cout << "color: " << glm::to_string(color) << endl;
+		vec3 color = getColor(isect, start, ray_dir, obj->m_material,0,0);
 		if (!resample) {
 			not_bg_map[(int)(j*w+i)] = true;
 		}
@@ -144,7 +145,34 @@ glm::vec3 A4::A4_sample_one_dir(
 			not_bg_map[(int)(j*w+i)] = false;
 		}
 		return vec3((uint)pixelOffset[0]/255.0,(uint)pixelOffset[1]/255.0,(uint)pixelOffset[2]/255.0);
-		// return vec3(0.5,0.5,0.5);
+	}
+}
+// given pixel location, calculate ray direction and sample the color
+glm::vec3 A4::A4_sample_one_pixel(
+	double i, double j, bool resample
+) {
+	vec3 ray_dir = get_ray_dir(i,j);
+	vec3 color = vec3(0,0,0);
+	vec3 start = eye;
+	// color += A4_sample_one_dir(ray_dir, start, i, j, resample);
+	if (!DEPTH_OF_FIELD) {
+		return A4_sample_one_dir(ray_dir, start, i, j, resample);
+	} else {
+		vec3 offset_ray_dir;
+		double focus_d = (FOCUS - eye[2])/ray_dir[2];
+		// cout << "focus_d"
+		vec3 dest = eye + focus_d * ray_dir;
+		// cout << "dest: " << glm::to_string(dest) << endl;
+		for (int i=0; i < DEPTH_OF_FIELD_N; i++) {
+			start = eye + randoms[i]*APERTURE_SIZE*vec3(0,1,0) + randoms[i]*APERTURE_SIZE*vec3(1,0,0);
+			// cout << "start to eye: " << glm::to_string(start-eye) << endl;
+			offset_ray_dir = glm::normalize(dest - start);
+			vec3 sample_color = A4_sample_one_dir(offset_ray_dir, start, i, j, true);
+			// cout << "sample_color: " << glm::to_string(sample_color) << endl;
+			color += sample_color;
+		}
+		// cout << endl;
+		return color / (double)(DEPTH_OF_FIELD_N);
 	}
 }
 
@@ -171,19 +199,19 @@ vec3 A4::get_neighbor_pixel_avg(int i, int j, Image & samples) {
 }
 
 vec3 A4::recursive_sampling( Image & samples,double i,double j, int level, vec3 avg){
-	vec3 color1 = A4_sample_one_dir((double)i-pow(0.5,level),(double)j-pow(0.5,level),true);
+	vec3 color1 = A4_sample_one_pixel((double)i-pow(0.5,level),(double)j-pow(0.5,level),true);
 	if (A4_pixel_is_edge(avg, color1) && level < RESAMPLE_LEVEL) {
 		color1 = recursive_sampling(samples, (double)i-pow(0.5,level), (double)j-pow(0.5,level), level+1, avg);
 	}
-	vec3 color2 = A4_sample_one_dir((double)i-pow(0.5,level),(double)j+pow(0.5,level),true);
+	vec3 color2 = A4_sample_one_pixel((double)i-pow(0.5,level),(double)j+pow(0.5,level),true);
 	if (A4_pixel_is_edge(avg, color2) & level < RESAMPLE_LEVEL) {
 		color2 = recursive_sampling(samples, (double)i-pow(0.5,level), (double)j+pow(0.5,level), level + 1, avg);
 	}
-	vec3 color3 = A4_sample_one_dir((double)i+pow(0.5,level),(double)j-pow(0.5,level),true);
+	vec3 color3 = A4_sample_one_pixel((double)i+pow(0.5,level),(double)j-pow(0.5,level),true);
 	if (A4_pixel_is_edge(avg, color3) & level < RESAMPLE_LEVEL) {
 		color3 = recursive_sampling(samples, (double)i+pow(0.5,level), (double)j-pow(0.5,level), level + 1, avg);
 	}
-	vec3 color4 = A4_sample_one_dir((double)i+pow(0.5,level),(double)j+pow(0.5,level),true);
+	vec3 color4 = A4_sample_one_pixel((double)i+pow(0.5,level),(double)j+pow(0.5,level),true);
 	if (A4_pixel_is_edge(avg, color4) & level < RESAMPLE_LEVEL) {
 		color4 = recursive_sampling(samples, (double)i+pow(0.5,level), (double)j+pow(0.5,level), level + 1, avg);
 	}
@@ -441,7 +469,7 @@ int A4::glossyReflection(
 
 	for (int i = 0; i < GLOSSY_REFL_N; i++) {
 		if (i > 0) {
-			offset = u * randoms.at(i) * glossy_mat.m_gloss_index + v * randomr.at(i) * glossy_mat.m_gloss_index;
+			offset = u * (randoms.at(i)-0.5) * glossy_mat.m_gloss_index + v * (randomr.at(i)-0.5) * glossy_mat.m_gloss_index;
 		} else {
 			offset = vec3(0,0,0);
 		}
