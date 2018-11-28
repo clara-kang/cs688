@@ -38,7 +38,7 @@ s:translate(0, 4, 0)
 -- the floor
 plane = gr.mesh( 'plane', 'plane.obj' )
 scene:add_child(plane)
-plane:set_material(gloss_blue)
+plane:set_material(test_blue)
 plane:scale(30, 30, 30)
 
 -- -- the floor

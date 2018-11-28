@@ -4,6 +4,7 @@
 
 #include <glm/glm.hpp>
 #include <vector>
+#include <map>
 
 #include "SceneNode.hpp"
 #include "GeometryNode.hpp"
@@ -13,9 +14,15 @@
 
 struct Photon {
   vec3 pos;
-  float p[4];
-  float phi, theta;
+  vec3 dir;
+  // float p[4];
+  // float phi, theta;
   short flag;
+};
+
+struct Cell {
+  vec3 pos;
+  float phi, theta;
 };
 
 class PhotonMap {
@@ -23,13 +30,19 @@ public:
   virtual ~PhotonMap(){};
 
 	PhotonMap(const std::list<Light *> & lights, SceneNode * root);
+  void createProjMap();
   void castPhotons();
-  void castPrimaryRay( SceneNode *root, const glm::vec3 & start, const glm::vec3 & ray_dir,
-  	Intersection *isect, mat4 T, mat4 T_n, GeometryNode ** obj);
   void renderPhotonMap();
+  void renderProjectionMap();
 
 private:
-  std::vector<Photon> m_photon_list;
+  std::map<int,std::vector<Cell>> projection_map;
+  std::vector<Photon> photon_map;
   SceneNode * root;
   const std::list<Light *> & lights;
+
+  void castPrimaryRay( SceneNode *root, const glm::vec3 & start, const glm::vec3 & ray_dir,
+    Intersection *isect, mat4 T, mat4 T_n, GeometryNode ** obj);
+  void SurfaceInteraction(Dielectric *dielectric, const vec3 & normal, const vec3 & ray_dir,
+    vec3 *new_ray_dir);
 };

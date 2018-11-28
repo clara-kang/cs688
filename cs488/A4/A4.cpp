@@ -95,8 +95,10 @@ void A4::A4_Render(
 
 	// create photon map
 	if (PHOTON_MAP) {
+		photon_map.createProjMap();
 		photon_map.castPhotons();
 		photon_map.renderPhotonMap();
+		photon_map.renderProjectionMap();
 		return;
 	}
 	for (int i = 0; i < w; i++) {
@@ -277,6 +279,8 @@ void A4::A4_Render_pixel_rec(
 				// cout << "isect->uv: " << glm::to_string(isect->uv) << endl;
 				*obj = gnode;
 			}
+		} else {
+			// cout << "shadow_ray!! transparent obstacle!!" << endl;
 		}
 	}
 	if (!shadow_ray || isect->t == HUGE_VAL) {
@@ -367,8 +371,10 @@ glm::vec3 A4::getColor (
 		}
 
 		for (Light *light : lights) {
-			to_light_dir = glm::normalize(light->position - intersection);
-
+			vec3 to_light = light->position - intersection;
+			to_light_dir = glm::normalize(to_light);
+			double to_light_dist = glm::length(to_light);
+			bool hit_light = false;
 			// test if facing light
 			double normal_dot_light = glm::dot(to_light_dir, n_normal);
 			if (normal_dot_light > 0) {
@@ -393,7 +399,7 @@ glm::vec3 A4::getColor (
 						}
 						tmp_isect1.t = HUGE_VAL;
 						A4_Render_pixel_rec (true, root, start, glm::normalize(to_light_dir+light_offset), &tmp_isect1, mat4(1.0), mat4(1.0), &node);
-						if (tmp_isect1.t == HUGE_VAL){
+						if (tmp_isect1.t == HUGE_VAL || tmp_isect1.t > to_light_dist){
 							hit_count++;
 						}
 						if (i == 4 && hit_count == 0) {
@@ -408,12 +414,13 @@ glm::vec3 A4::getColor (
 					// no soft shadow
 					tmp_isect1.t = HUGE_VAL;
 					A4_Render_pixel_rec (true, root, start, to_light_dir, &tmp_isect1, mat4(1.0), mat4(1.0), &node);
-					if (tmp_isect1.t == HUGE_VAL) {
+					if (tmp_isect1.t == HUGE_VAL || tmp_isect1.t > to_light_dist) {
 						// diffuse
 						diffuse_contrib += light->colour * diffuse_color * normal_dot_light * atten;
+						hit_light = true;
 					}
 				}
-				if ((SOFT_SHADOW && hit_count > 0) || (!SOFT_SHADOW && tmp_isect1.t == HUGE_VAL)) {
+				if ((SOFT_SHADOW && hit_count > 0) || hit_light) {
 					// Specular
 					double cos_thetaI = glm::dot(n_normal, -ray_dir);
 					vec3 rf_ray_dir = glm::normalize(2.0*cos_thetaI*n_normal + ray_dir);
@@ -433,8 +440,7 @@ glm::vec3 A4::getColor (
 		}
 
 		if (dielectric != NULL) {
-			// cout << "reflection_contrib + transmission_contrib" << glm::to_string(reflection_contrib + transmission_contrib) << endl;
-			return specular_contrib + (reflection_contrib + transmission_contrib)*diffuse_contrib;
+			return specular_contrib + (reflection_contrib + transmission_contrib);
 		} else if (glossy != NULL) {
 			double reflection_fraction = hit_count*(GLOSSY_REFL_FRACTION/GLOSSY_REFL_N);
 			return specular_contrib + reflection_fraction * reflection_contrib * diffuse_contrib+
@@ -515,12 +521,10 @@ void A4::reflectAndTransmit(
 
 	// compute reflective ray
 	cos_thetaI = glm::dot(n_normal, -ray_dir);
-	// cout << "n_normal: " << glm::to_string(n_normal) << endl;
-	// cout << "ray_dir: " << glm::to_string(ray_dir) << endl;
-	// cout << "cos_thetaI: " << cos_thetaI << endl;
 	bool from_inside = cos_thetaI < 0;
 
 	if (from_inside) {
+		// cout << "from_inside" << endl;
 		eta_T = 1.0;
 		eta_I = dielectric.m_rf_index;
 		cos_thetaI = - cos_thetaI;
@@ -536,7 +540,7 @@ void A4::reflectAndTransmit(
 	cos_thetaT = sqrt(1-pow(sin_thetaT, 2.0));
 
 	if (sin_thetaT >= 1.0) {
-		cout << "total_internal!" << endl;
+		// cout << "total_internal!" << endl;
 		r_avg = 1.0;
 	} else {
 		// compute r_avg
@@ -548,6 +552,7 @@ void A4::reflectAndTransmit(
 		r_avg = std::fmin(std::fmax(r_avg, 0.0), 1.0);
 		// transmission
 		if (r_avg < 1) {
+			// cout << "transmission" << endl;
 			tr_ray_dir = glm::normalize(ray_dir + normal*cos_thetaI) * sin_thetaT - glm::normalize(normal*cos_thetaI) * cos_thetaT;
 			start_tr = intersection + EPSILON*tr_ray_dir;
 			tmp_isect2.t = HUGE_VAL;
@@ -569,6 +574,7 @@ void A4::reflectAndTransmit(
 			}
 			if (tmp_isect2.t < HUGE_VAL) {
 				tr_color = getColor (tmp_isect2, start_tr, tr_ray_dir, node1->m_material, accum_dist+tmp_isect2.t, count+1);
+				// cout << "tr_color: " << glm::to_string(tr_color) << endl;
 			}
 			*reflection_contrib = r_avg * rf_color;
 			*transmission_contrib = (1.0 - r_avg) * tr_color;

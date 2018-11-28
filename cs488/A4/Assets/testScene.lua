@@ -5,7 +5,7 @@ gold = gr.material({0.9, 0.8, 0.4}, {0.8, 0.8, 0.4}, 25)
 grass = gr.material({0.1, 0.7, 0.1}, {0.0, 0.0, 0.0}, 0)
 blue = gr.material({0.7, 0.6, 1}, {0.5, 0.4, 0.8}, 25)
 -- test_grass = gr.material({0.7, 0.6, 1}, {0.0, 0.0, 0.0}, 25, 1.3, 'rock.jpg')
-test_blue = gr.material({0.7, 0.6, 1}, {0.0, 0.0, 0.0}, 25, 0, 0, 0.5, '', 'leather.jpg')
+test_blue = gr.material({0.7, 0.6, 1.0}, {0.8,0.8,0.8}, 25, 1, 0, 1.6, '', '')
 
 scene = gr.node('scene')
 scene:rotate('X', 23)
@@ -38,14 +38,14 @@ poly = gr.sphere( 'ball' )
 scene:add_child(poly)
 poly:scale(2,2,2)
 poly:translate(-5, 2, 0)
-poly:set_material(gold)
+poly:set_material(test_blue)
 
 -- cube
 poly = gr.cube( 'cube' )
 scene:add_child(poly)
 poly:scale(2,2,2)
 poly:translate(-6, -1.618034, 0)
-poly:set_material(gold)
+poly:set_material(test_blue)
 
 -- The lights
 l1 = gr.light({0, 0, 0}, {0.8, 0.8, 0.8}, {1, 0, 0}, 60000)
