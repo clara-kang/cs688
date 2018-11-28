@@ -19,15 +19,19 @@ using namespace glm;
 #define GLOSSY 3
 #define DIFFUSE 1
 
-static const int NUM_INC_PROJ_MAP = 500;
+static const int NUM_INC_PROJ_MAP = 100;
 static const int REFLECT_MAX_TIMES = 3;
 static const float INC_PHI = PI / NUM_INC_PROJ_MAP;
 static const float INC_THETA = 2.0f * PI / NUM_INC_PROJ_MAP;
 
 
 
-PhotonMap::PhotonMap(const std::list<Light *> & lights, SceneNode * root):
+PhotonMap::PhotonMap(const std::list<Light *> & lights, const vec3 & eye,
+	const vec3 & view_dir, double fov, SceneNode * root):
 lights(lights),
+eye(eye),
+view_dir(view_dir),
+fov(fov),
 root(root){
 	srand(time(NULL));
 };
@@ -213,26 +217,26 @@ void PhotonMap::SurfaceInteraction(
 
 void PhotonMap::renderPhotonMap() {
   Image image(256,256);
-  vec3 eye = vec3(0,0,0);
-  float fov = 180.0f;
   float size = 256.0f;
   float half_fov = (fov/2.0f) * PI/ 180.0f;
   float half_cos_fov = cos(half_fov);
   float half_sin_fov = sin(half_fov);
+	vec3 to_photon;
   int i,j;
   cout << "map size: " << projection_map.size() << endl;
   int count = 0;
 	for (Photon photon : photon_map) {
-		float y_cos = glm::dot(glm::normalize(vec3(0,photon.pos.y, photon.pos.z)), vec3(0,0,-1));
-		float x_cos = glm::dot(glm::normalize(vec3(photon.pos.x, 0,photon.pos.z)), vec3(0,0,-1));
+		to_photon = photon.pos - eye;
+		float y_cos = glm::dot(glm::normalize(vec3(0,to_photon.y, to_photon.z)), view_dir);
+		float x_cos = glm::dot(glm::normalize(vec3(to_photon.x, 0,to_photon.z)), view_dir);
 		// cout << "y_cos: " << y_cos << ",x_cos: " << x_cos << endl;
 		if (y_cos > half_cos_fov && x_cos > half_cos_fov) {
 			float y_sin = sqrt(1-pow(y_cos, 2.0));
 			float x_sin = sqrt(1-pow(x_cos, 2.0));
-			if (photon.pos.y < 0) {
+			if (to_photon.y < 0) {
 				y_sin = -y_sin;
 			}
-			if (photon.pos.x < 0) {
+			if (to_photon.x < 0) {
 				x_sin = -x_sin;
 			}
 			// cout << "y_sin: " << y_sin << ",x_sin: " << x_sin << endl;
@@ -245,26 +249,26 @@ void PhotonMap::renderPhotonMap() {
 			count ++;
 		}
 	}
-  cout << "count: " << count << endl;
+  // cout << "count: " << count << endl;
   image.savePng( "photonmap.png" );
 }
 
 void PhotonMap::renderProjectionMap() {
   Image image(256,256);
-  vec3 eye = vec3(0,0,0);
-  float fov = 120.0f;
   float size = 256.0f;
   float half_fov = (fov/2.0f) * PI/ 180.0f;
   float half_cos_fov = cos(half_fov);
   float half_sin_fov = sin(half_fov);
 	float half_tan_fov = tan(half_fov);
+	vec3 to_cell;
   int i,j;
   int count = 0;
 	int light_index = 0;
 	for (Light *light : lights) {
 		for (Cell cell : projection_map[light_index]) {
-			float y_cos = glm::dot(glm::normalize(vec3(0,cell.pos.y, cell.pos.z)), vec3(0,0,-1));
-			float x_cos = glm::dot(glm::normalize(vec3(cell.pos.x, 0,cell.pos.z)), vec3(0,0,-1));
+			to_cell = cell.pos - eye;
+			float y_cos = glm::dot(glm::normalize(vec3(0,to_cell.y, to_cell.z)), view_dir);
+			float x_cos = glm::dot(glm::normalize(vec3(to_cell.x, 0,to_cell.z)), view_dir);
 			float y_ang = acos(y_cos);
 			float x_ang = acos(x_cos);
 			// cout << "y_cos: " << y_cos << ",x_cos: " << x_cos << endl;
@@ -273,10 +277,10 @@ void PhotonMap::renderProjectionMap() {
 				float x_tan = tan(x_ang);
 				// float y_sin = sqrt(1-pow(y_cos, 2.0));
 				// float x_sin = sqrt(1-pow(x_cos, 2.0));
-				if (cell.pos.y < 0) {
+				if (to_cell.y < 0) {
 					y_tan = -y_tan;
 				}
-				if (cell.pos.x < 0) {
+				if (to_cell.x < 0) {
 					x_tan = -x_tan;
 				}
 				// cout << "y_sin: " << y_sin << ",x_sin: " << x_sin << endl;
@@ -284,7 +288,7 @@ void PhotonMap::renderProjectionMap() {
 				// cout << "y_tan: " << y_tan << endl;
 				i = (int)((x_tan / half_tan_fov) * size / 2.0 + size / 2.0);
 				j = (int)(-(y_tan / half_tan_fov) * size / 2.0 + size / 2.0);
-				cout << "i: " << i << ",j: " << j << endl;
+				// cout << "i: " << i << ",j: " << j << endl;
 				for ( int k = 0; k < 3; k++) {
 					image((uint)i, (uint)j, k) = 1.0;
 				}

@@ -29,7 +29,8 @@ class PhotonMap {
 public:
   virtual ~PhotonMap(){};
 
-	PhotonMap(const std::list<Light *> & lights, SceneNode * root);
+	PhotonMap(const std::list<Light *> & lights, const vec3 & eye,
+    const vec3 & view_dir, double fov, SceneNode * root);
   void createProjMap();
   void castPhotons();
   void renderPhotonMap();
@@ -40,6 +41,9 @@ private:
   std::vector<Photon> photon_map;
   SceneNode * root;
   const std::list<Light *> & lights;
+  const vec3 & eye;
+  const vec3 & view_dir;
+  double fov;
 
   void castPrimaryRay( SceneNode *root, const glm::vec3 & start, const glm::vec3 & ray_dir,
     Intersection *isect, mat4 T, mat4 T_n, GeometryNode ** obj);
