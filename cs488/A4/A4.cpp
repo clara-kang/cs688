@@ -24,7 +24,7 @@ static unsigned char *bg_data;
 static const bool ADAPTIVE_SAMPLING = false;
 static const bool SOFT_SHADOW = false;
 static const bool FRESNEL = true;
-static const bool PHOTON_MAP = false;
+static const bool PHOTON_MAP = true;
 static const bool DEPTH_OF_FIELD = false;
 static const double LIGHT_RADIUS = 0.05;
 static const double GLOSSY_REFL_FRACTION = 0.4;
@@ -96,8 +96,8 @@ void A4::A4_Render(
 	// create photon map
 	if (PHOTON_MAP) {
 		photon_map.createProjMap();
-		photon_map.castPhotons();
-		photon_map.renderPhotonMap();
+		// photon_map.castPhotons();
+		// photon_map.renderPhotonMap();
 		photon_map.renderProjectionMap();
 		return;
 	}

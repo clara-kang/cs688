@@ -52,16 +52,20 @@ ceiling:rotate('z',180)
 ceiling:translate(0, 25, -0)
 ceiling:set_material(blue)
 
--- sphere
-ball = gr.sphere( 'ball' )
-scene:add_child(ball)
-ball:scale(6,6,6)
-ball:translate(8, -4, 6)
-ball:set_material(test_blue)
+-- -- sphere
+-- ball = gr.sphere( 'ball' )
+-- scene:add_child(ball)
+-- ball:scale(6,6,6)
+-- ball:translate(8, -4, 6)
+-- ball:set_material(test_blue)
+
+s1 = gr.nh_sphere('s1', {8, -4, 6}, 6)
+scene:add_child(s1)
+s1:set_material(test_blue)
 
 -- The lights
-l1 = gr.light({-1, 4, 0}, {0.8, 0.8, 0.8}, {1, 0, 0}, 60000)
--- l1 = gr.light({0, 0, 40}, {0.8, 0.8, 0.8}, {1, 0, 0}, 60000)
+-- l1 = gr.light({-1, 4, 0}, {0.8, 0.8, 0.8}, {1, 0, 0}, 60000)
+l1 = gr.light({0, 0, 40}, {0.8, 0.8, 0.8}, {1, 0, 0}, 60000)
 -- l2 = gr.light({0, 5, -20}, {0.8, 0.8, 0.8}, {1, 0, 0})
 
 gr.render(scene, 'room.png', 256, 256,

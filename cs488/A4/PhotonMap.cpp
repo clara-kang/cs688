@@ -19,7 +19,7 @@ using namespace glm;
 #define GLOSSY 3
 #define DIFFUSE 1
 
-static const int NUM_INC_PROJ_MAP = 100;
+static const int NUM_INC_PROJ_MAP = 500;
 static const int REFLECT_MAX_TIMES = 3;
 static const float INC_PHI = PI / NUM_INC_PROJ_MAP;
 static const float INC_THETA = 2.0f * PI / NUM_INC_PROJ_MAP;
@@ -134,7 +134,6 @@ void PhotonMap::castPhotons() {
 						if (dielectric != NULL) {
 							int cnt = 0;
 							intersection = light->position + isect.t * ray_dir;
-							bool store = false;
 							do {
 								SurfaceInteraction(dielectric, isect.normal, ray_dir, &ray_dir);
 								isect.t = HUGE_VAL;
@@ -191,6 +190,7 @@ void PhotonMap::SurfaceInteraction(
 	sin_thetaT = sin_thetaI * eta_I/eta_T;
 
 	if (sin_thetaT >= 1.0) {
+		cout << "total_internal!" << endl;
 		r_avg = 1.0;
 	} else {
 		// compute r_avg
@@ -252,11 +252,12 @@ void PhotonMap::renderPhotonMap() {
 void PhotonMap::renderProjectionMap() {
   Image image(256,256);
   vec3 eye = vec3(0,0,0);
-  float fov = 180.0f;
+  float fov = 120.0f;
   float size = 256.0f;
   float half_fov = (fov/2.0f) * PI/ 180.0f;
   float half_cos_fov = cos(half_fov);
   float half_sin_fov = sin(half_fov);
+	float half_tan_fov = tan(half_fov);
   int i,j;
   int count = 0;
 	int light_index = 0;
@@ -264,20 +265,26 @@ void PhotonMap::renderProjectionMap() {
 		for (Cell cell : projection_map[light_index]) {
 			float y_cos = glm::dot(glm::normalize(vec3(0,cell.pos.y, cell.pos.z)), vec3(0,0,-1));
 			float x_cos = glm::dot(glm::normalize(vec3(cell.pos.x, 0,cell.pos.z)), vec3(0,0,-1));
+			float y_ang = acos(y_cos);
+			float x_ang = acos(x_cos);
 			// cout << "y_cos: " << y_cos << ",x_cos: " << x_cos << endl;
 			if (y_cos > half_cos_fov && x_cos > half_cos_fov) {
-				float y_sin = sqrt(1-pow(y_cos, 2.0));
-				float x_sin = sqrt(1-pow(x_cos, 2.0));
+				float y_tan = tan(y_ang);
+				float x_tan = tan(x_ang);
+				// float y_sin = sqrt(1-pow(y_cos, 2.0));
+				// float x_sin = sqrt(1-pow(x_cos, 2.0));
 				if (cell.pos.y < 0) {
-					y_sin = -y_sin;
+					y_tan = -y_tan;
 				}
 				if (cell.pos.x < 0) {
-					x_sin = -x_sin;
+					x_tan = -x_tan;
 				}
 				// cout << "y_sin: " << y_sin << ",x_sin: " << x_sin << endl;
-				i = (int)((x_sin / half_sin_fov) * size / 2.0 + size / 2.0);
-				j = (int)(-(y_sin / half_sin_fov) * size / 2.0 + size / 2.0);
-				// cout << "i: " << i << ",j: " << j << endl;
+				// cout << "x_tan: " << x_tan << endl;
+				// cout << "y_tan: " << y_tan << endl;
+				i = (int)((x_tan / half_tan_fov) * size / 2.0 + size / 2.0);
+				j = (int)(-(y_tan / half_tan_fov) * size / 2.0 + size / 2.0);
+				cout << "i: " << i << ",j: " << j << endl;
 				for ( int k = 0; k < 3; k++) {
 					image((uint)i, (uint)j, k) = 1.0;
 				}
