@@ -16,6 +16,7 @@
 struct Photon {
   vec3 pos;
   vec3 dir;
+  vec3 color;
   // float p[4];
   // float phi, theta;
   // short flag;

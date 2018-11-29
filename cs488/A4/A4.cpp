@@ -26,8 +26,8 @@ static const bool ADAPTIVE_SAMPLING = false;
 static const bool FRESNEL = true;
 // photon mapping
 static const bool PHOTON_MAP = true;
-static const float NEAR_PHOTON_DIST = 100.0f;
-static const int PHOTON_NUM_POINT = 50;
+static const float NEAR_PHOTON_DIST = 20.0f;
+static const int PHOTON_NUM_POINT = 10;
 // soft shadow
 static const bool SOFT_SHADOW = false;
 static const double LIGHT_RADIUS = 0.05;
@@ -272,33 +272,46 @@ glm::vec3 A4::getRadiance(const glm::vec3 & position, const glm::vec3 & ray_dir,
 	const glm::vec3 & normal) {
 		// cout << "get radiance" << endl;
 		std::vector<Photon *> *photons_found = new std::vector<Photon *>();
-		photon_map.locatePhotons(position, NEAR_PHOTON_DIST*NEAR_PHOTON_DIST,
+		photon_map.locatePhotons(position, pow(NEAR_PHOTON_DIST,2.0),
 			PHOTON_NUM_POINT, photons_found);
 		// cout << "nearby photons num: " << (*photons_found).size() << endl;
 		int hit_count = 0;
 		float R = 1.0f;
 		vec3 caustic_contrib = vec3(0,0,0);
-		vec3 photon_color = vec3(50.0f,50.0f,50.0f);
+		vec3 photon_color = vec3(0.05f,0.05f,0.05f);
 		if ((*photons_found).size() > 0) {
-			std::push_heap((*photons_found).begin(), (*photons_found).end(),
-				[&position](const Photon *photon1, const Photon *photon2) -> bool {
-					return glm::length(photon1->pos - position) < glm::length(photon2->pos - position);
-				});
-			vector<Photon *>::iterator maxX = std::max_element((*photons_found).begin(), (*photons_found).end(),
-				[&position](const Photon *photon1, const Photon *photon2) -> bool {
-					return glm::length(photon1->pos - position) < glm::length(photon2->pos - position);
-				});
-			R = glm::length(position - (*maxX)->pos);
-			for (Photon *photon : *photons_found) {
-				if (glm::dot(photon->dir, normal) > 0) {
+			// std::push_heap((*photons_found).begin(), (*photons_found).end(),
+			// 	[&position](const Photon *photon1, const Photon *photon2) -> bool {
+			// 		return glm::length(photon1->pos - position) < glm::length(photon2->pos - position);
+			// 	});
+			// std::pop_heap((*photons_found).begin(), (*photons_found).end());
+			// vector<Photon *>::iterator farthest_photon = (*photons_found).pop_back();
+			vector<Photon *>::iterator it;
+			for (it = (*photons_found).begin(); it != (*photons_found).end();) {
+				Photon *photon = *(it);
+				if (glm::dot(photon->dir, -normal) > 0) {
 					hit_count ++;
+					++it;
+				} else {
+					// cout << "erase!" << endl;
+					(*photons_found).erase(it);
 				}
 			}
-			if (hit_count > 5 ) {
-				// caustic_contrib = photon_color * (float)hit_count/(PI * R * R);
+
+			if (hit_count > 0 ) {
 				// cout << "caustic_contrib: " << glm::to_string(caustic_contrib) << endl;
+				vector<Photon *>::iterator farthest_photon = std::max_element((*photons_found).begin(), (*photons_found).end(),
+					[&position](const Photon *photon1, const Photon *photon2) -> bool {
+						return glm::length(photon1->pos - position) < glm::length(photon2->pos - position);
+					});
+				for (it = (*photons_found).begin(); it != (*photons_found).end();++it) {
+					Photon *photon = *(it);
+					caustic_contrib += photon->color * (1.0f - glm::length(photon->pos - position)/R);
+				}
+				R = glm::length(position - (*farthest_photon)->pos);
+				caustic_contrib = caustic_contrib /(PI * R * R);
 				// cout << "hit_count: " << hit_count << endl;
-				caustic_contrib = vec3(0.1,0.1,0.1);
+				// cout << "hit_count: " << hit_count << endl;
 			}
 		}
 		delete photons_found;
@@ -420,8 +433,8 @@ glm::vec3 A4::getColor (
 		} else if (glossy != NULL && count <= REFLECT_MAX_TIMES) {
 			hit_count = glossyReflection(n_normal, ray_dir, intersection, *glossy, accum_dist, count, &reflection_contrib);
 		}
-		// TODO: remove
-		return caustics_contrib;
+		// // TODO: remove
+		// return caustics_contrib;
 
 		if (dielectric != NULL) {
 			return specular_contrib + (reflection_contrib + transmission_contrib) + caustics_contrib;

@@ -127,14 +127,17 @@ void PhotonMap::castPhotons() {
 	for (Light *light : lights) {
 		int photons_per_cell = light->photon_num / (projection_map[light_index]).size();
 		float dim = sqrt(photons_per_cell);
-		float inc_phi = INC_PHI / dim;
-		float inc_theta = INC_THETA / dim;
+		float inc_phi = 2.0f * INC_PHI / dim;
+		float inc_theta = 2.0f * INC_THETA / dim;
 		float phi, theta;
+		float random_offset_phi, random_offset_theta;
 		for (Cell cell : projection_map[light_index]) {
 			for (int i = 0; i < dim; i++) {
+				random_offset_phi = INC_PHI * getRandomNum()/5.0;
 				for (int j = 0; j < dim; j++) {
-					phi = cell.phi - INC_PHI/2.0f + i * inc_phi;
-					theta = cell.theta - INC_THETA/2.0f + j * inc_theta;
+					random_offset_theta = INC_THETA * getRandomNum()/5.0;
+					phi = cell.phi - INC_PHI + random_offset_phi + i * inc_phi;
+					theta = cell.theta - INC_THETA + random_offset_theta + j * inc_theta;
 	        vec3 ray_dir = glm::normalize(vec3(sin(phi)*sin(theta), cos(phi), sin(phi)*cos(theta)));
 					isect.t = HUGE_VAL;
 					castPrimaryRay( root, light->position, ray_dir, &isect, mat4(1.0), mat4(1.0), &node);
@@ -162,6 +165,7 @@ void PhotonMap::castPhotons() {
 								Photon photon;
 								photon.dir = ray_dir;
 								photon.pos = intersection;
+								photon.color = light->colour;
 								photon_map.push_back(photon);
 							}
 						}
@@ -197,9 +201,9 @@ void PhotonMap::SurfaceInteraction(
 	}
 	sin_thetaI = sqrt(1-pow(cos_thetaI, 2.0));
 	sin_thetaT = sin_thetaI * eta_I/eta_T;
+	cos_thetaT = sqrt(1-pow(sin_thetaT, 2.0));
 
 	if (sin_thetaT >= 1.0) {
-		// cout << "total_internal!" << endl;
 		r_avg = 1.0;
 	} else {
 		// compute r_avg
@@ -208,7 +212,6 @@ void PhotonMap::SurfaceInteraction(
 		double r_per = (eta_I * cos_thetaI - eta_T*cos_thetaT)/
 			(eta_I * cos_thetaI + eta_T*cos_thetaT);
 		r_avg = (pow(r_par,2.0) + pow(r_per,2.0))/2.0;
-		r_avg = std::fmin(std::fmax(r_avg, 0.0), 1.0);
 	}
 	float random_num = getRandomNum();
 	if (0 <= random_num && random_num < 1-r_avg) {
@@ -236,28 +239,27 @@ static int leaves = 0;
 void PhotonMap::buildKdTree() {
 	kd_tree = buildKdTree(photon_map);
 	cout << "photons: " << photon_map.size() << endl;
-	cout << "leaves: " << leaves << endl;
 }
 
 void PhotonMap::test() {
 	Photon photon1 = {
-		vec3 (-20, 0, 0),
+		vec3 (0, -20, -20),
 		vec3 (0,0,0),
 	};
 	Photon photon2 = {
-		vec3 (15, 0, 0),
+		vec3 (0, 15, 15),
 		vec3 (0,0,0),
 	};
 	Photon photon3 = {
-		vec3 (-11, 0, 0),
+		vec3 (0, -11, -11),
 		vec3 (0,0,0),
 	};
 	Photon photon4 = {
-		vec3 (10, 0, 0),
+		vec3 (0, 10, 10),
 		vec3 (0,0,0),
 	};
 	Photon photon5 = {
-		vec3 (-5, 0, 0),
+		vec3 (0, -5, -5),
 		vec3 (0,0,0),
 	};
 	vector<Photon> photonList;
@@ -266,15 +268,9 @@ void PhotonMap::test() {
 	photon_map.push_back(photon3);
 	photon_map.push_back(photon4);
 	photon_map.push_back(photon5);
-	// cout << "photon_map" << endl;
-	// std::vector<Photon>::iterator it = photon_map.begin();
-	// while(it != photon_map.end()) {
-	// 	cout << glm::to_string((*it).pos) << endl;
-	// 	it ++;
-	// }
 	buildKdTree();
 	vector<Photon *> photons_nearby;
-	locatePhotons(vec3 (0,0,0), 144, kd_tree, 2, &photons_nearby);
+	locatePhotons(vec3 (0,0,0), 202, kd_tree, 2, &photons_nearby);
 	cout << "photons_nearby" << endl;
 	std::vector<Photon *>::iterator it = photons_nearby.begin();
 	while(it != photons_nearby.end()) {
@@ -444,20 +440,14 @@ void PhotonMap::renderProjectionMap() {
 			if (y_cos > half_cos_fov && x_cos > half_cos_fov) {
 				float y_tan = tan(y_ang);
 				float x_tan = tan(x_ang);
-				// float y_sin = sqrt(1-pow(y_cos, 2.0));
-				// float x_sin = sqrt(1-pow(x_cos, 2.0));
 				if (to_cell.y < 0) {
 					y_tan = -y_tan;
 				}
 				if (to_cell.x < 0) {
 					x_tan = -x_tan;
 				}
-				// cout << "y_sin: " << y_sin << ",x_sin: " << x_sin << endl;
-				// cout << "x_tan: " << x_tan << endl;
-				// cout << "y_tan: " << y_tan << endl;
 				i = (int)((x_tan / half_tan_fov) * size / 2.0 + size / 2.0);
 				j = (int)(-(y_tan / half_tan_fov) * size / 2.0 + size / 2.0);
-				// cout << "i: " << i << ",j: " << j << endl;
 				for ( int k = 0; k < 3; k++) {
 					image((uint)i, (uint)j, k) = 1.0;
 				}
@@ -465,6 +455,5 @@ void PhotonMap::renderProjectionMap() {
 			}
 		}
 	}
-  cout << "count proj: " << count << endl;
   image.savePng( "projection_map.png" );
 }
