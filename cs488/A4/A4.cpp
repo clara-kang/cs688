@@ -26,8 +26,8 @@ static const bool ADAPTIVE_SAMPLING = false;
 static const bool FRESNEL = true;
 // photon mapping
 static const bool PHOTON_MAP = true;
-static const float NEAR_PHOTON_DIST = 20.0f;
-static const int PHOTON_NUM_POINT = 10;
+static const float NEAR_PHOTON_DIST = 5.0f;
+static const int PHOTON_NUM_POINT = 20;
 // soft shadow
 static const bool SOFT_SHADOW = false;
 static const double LIGHT_RADIUS = 0.05;
