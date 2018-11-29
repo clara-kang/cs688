@@ -32,9 +32,14 @@ lights(lights),
 eye(eye),
 view_dir(view_dir),
 fov(fov),
-root(root){
+root(root),
+kd_tree(NULL){
 	srand(time(NULL));
 };
+
+PhotonMap::~PhotonMap(){
+	freeKdTree(kd_tree);
+}
 
 float getRandomNum() {
 	return (rand()%10+1.0f)/10.0f;
@@ -194,7 +199,7 @@ void PhotonMap::SurfaceInteraction(
 	sin_thetaT = sin_thetaI * eta_I/eta_T;
 
 	if (sin_thetaT >= 1.0) {
-		cout << "total_internal!" << endl;
+		// cout << "total_internal!" << endl;
 		r_avg = 1.0;
 	} else {
 		// compute r_avg
@@ -215,6 +220,175 @@ void PhotonMap::SurfaceInteraction(
 	}
 }
 
+bool lessX(const Photon& photon1, const Photon& photon2) {
+	return photon1.pos[0] < photon2.pos[0];
+}
+
+bool lessY(const Photon& photon1, const Photon& photon2) {
+	return photon1.pos[2] < photon2.pos[2];
+}
+
+bool lessZ(const Photon& photon1, const Photon& photon2) {
+	return photon1.pos[2] < photon2.pos[2];
+}
+static int leaves = 0;
+
+void PhotonMap::buildKdTree() {
+	kd_tree = buildKdTree(photon_map);
+	cout << "photons: " << photon_map.size() << endl;
+	cout << "leaves: " << leaves << endl;
+}
+
+void PhotonMap::test() {
+	Photon photon1 = {
+		vec3 (-20, 0, 0),
+		vec3 (0,0,0),
+	};
+	Photon photon2 = {
+		vec3 (15, 0, 0),
+		vec3 (0,0,0),
+	};
+	Photon photon3 = {
+		vec3 (-11, 0, 0),
+		vec3 (0,0,0),
+	};
+	Photon photon4 = {
+		vec3 (10, 0, 0),
+		vec3 (0,0,0),
+	};
+	Photon photon5 = {
+		vec3 (-5, 0, 0),
+		vec3 (0,0,0),
+	};
+	vector<Photon> photonList;
+	photon_map.push_back(photon1);
+	photon_map.push_back(photon2);
+	photon_map.push_back(photon3);
+	photon_map.push_back(photon4);
+	photon_map.push_back(photon5);
+	// cout << "photon_map" << endl;
+	// std::vector<Photon>::iterator it = photon_map.begin();
+	// while(it != photon_map.end()) {
+	// 	cout << glm::to_string((*it).pos) << endl;
+	// 	it ++;
+	// }
+	buildKdTree();
+	vector<Photon *> photons_nearby;
+	locatePhotons(vec3 (0,0,0), 144, kd_tree, 2, &photons_nearby);
+	cout << "photons_nearby" << endl;
+	std::vector<Photon *>::iterator it = photons_nearby.begin();
+	while(it != photons_nearby.end()) {
+		cout << glm::to_string((*it)->pos) << endl;
+		it ++;
+	}
+}
+
+void PhotonMap::locatePhotons(const vec3 & position, float dist_square, int n,
+	std::vector<Photon *> *photons_found){
+		locatePhotons(position, dist_square, kd_tree, n, photons_found);
+}
+
+void PhotonMap::locatePhotons(const vec3 & position, float dist_square, TreeNode *tree,
+	int n, std::vector<Photon *> *photons_found) {
+		if (tree->left == NULL && tree->right == NULL) {
+			float dist_to_photon = glm::length(position - (tree->photon)->pos);
+			if ( pow(dist_to_photon, 2.0) < dist_square ) {
+				(*photons_found).push_back(tree->photon);
+				std::push_heap((*photons_found).begin(), (*photons_found).end(),
+					[&position](const Photon *photon1, const Photon *photon2) -> bool {
+						return glm::length(photon1->pos - position) < glm::length(photon2->pos - position);
+					});
+				if ((*photons_found).size() > n) {
+					std::pop_heap((*photons_found).begin(), (*photons_found).end());
+					(*photons_found).pop_back();
+				}
+			}
+		} else {
+			float dist_to_plane;
+			switch (tree->axis) {
+				case 'x':
+					dist_to_plane = position[0] - tree->value;
+					break;
+				case 'y':
+					dist_to_plane = position[1] - tree->value;
+					break;
+				case 'z':
+					dist_to_plane = position[2] - tree->value;
+			}
+			//on the left of plane
+			if (dist_to_plane < 0) {
+				locatePhotons(position, dist_square, tree->left, n, photons_found);
+				if (pow(dist_to_plane,2.0) < dist_square) {
+					locatePhotons(position, dist_square, tree->right, n, photons_found);
+				}
+			} else {
+				locatePhotons(position, dist_square, tree->right, n, photons_found);
+				if (pow(dist_to_plane,2.0) < dist_square) {
+					locatePhotons(position, dist_square, tree->left, n, photons_found);
+				}
+			}
+		}
+}
+
+void PhotonMap::freeKdTree(TreeNode *tree) {
+	if (tree != NULL) {
+		TreeNode *left = tree->left;
+		TreeNode *right = tree->right;
+		freeKdTree ( tree->left );
+		freeKdTree ( tree->right );
+		delete tree->photon;
+		delete tree;
+	}
+}
+
+TreeNode *PhotonMap::buildKdTree(std::vector<Photon> photons) {
+	TreeNode *node = new TreeNode();
+	if (photons.size() == 1) {
+		leaves ++;
+		node->photon = new Photon();
+		*(node->photon) = photons.at(0);
+		node->left = NULL;
+		node->right = NULL;
+		return node;
+	}
+	// get axis with largest range
+	vector<Photon>::iterator minX = std::min_element(photons.begin(), photons.end(),lessX);
+	vector<Photon>::iterator maxX = std::max_element(photons.begin(), photons.end(),lessX);
+	vector<Photon>::iterator minY = std::min_element(photons.begin(), photons.end(),lessY);
+	vector<Photon>::iterator maxY = std::max_element(photons.begin(), photons.end(),lessY);
+	vector<Photon>::iterator minZ = std::min_element(photons.begin(), photons.end(),lessZ);
+	vector<Photon>::iterator maxZ = std::max_element(photons.begin(), photons.end(),lessZ);
+	float x_range_size = (*maxX).pos[0] - (*minX).pos[0];
+	float y_range_size = (*maxY).pos[1] - (*minY).pos[1];
+	float z_range_size = (*maxZ).pos[2] - (*minZ).pos[2];
+
+	int mid = (int)((float)photons.size()/2.0f);
+	float mid_val;
+
+	if (x_range_size > fmax(y_range_size,z_range_size)){
+		std::sort(photons.begin(), photons.end(), lessX);
+		mid_val = (photons.at(mid-1)).pos[0];
+		node->axis = 'x';
+	} else if (y_range_size > fmax(x_range_size,z_range_size)) {
+		std::sort(photons.begin(), photons.end(), lessY);
+		mid_val = (photons.at(mid-1)).pos[1];
+		node->axis = 'y';
+	} else {
+		std::sort(photons.begin(), photons.end(), lessZ);
+		mid_val = (photons.at(mid-1)).pos[2];
+		node->axis = 'z';
+	}
+	node->value = mid_val;
+	// balance child
+	vector<Photon> left(mid);
+	vector<Photon> right(photons.size()-mid);
+	std::copy(photons.begin(), photons.begin()+mid, left.begin());
+	std::copy(photons.begin()+mid, photons.end(), right.begin());
+	node->left = buildKdTree(left);
+	node->right = buildKdTree(right);
+	return node;
+}
+
 void PhotonMap::renderPhotonMap() {
   Image image(256,256);
   float size = 256.0f;
@@ -223,13 +397,11 @@ void PhotonMap::renderPhotonMap() {
   float half_sin_fov = sin(half_fov);
 	vec3 to_photon;
   int i,j;
-  cout << "map size: " << projection_map.size() << endl;
   int count = 0;
 	for (Photon photon : photon_map) {
 		to_photon = photon.pos - eye;
 		float y_cos = glm::dot(glm::normalize(vec3(0,to_photon.y, to_photon.z)), view_dir);
 		float x_cos = glm::dot(glm::normalize(vec3(to_photon.x, 0,to_photon.z)), view_dir);
-		// cout << "y_cos: " << y_cos << ",x_cos: " << x_cos << endl;
 		if (y_cos > half_cos_fov && x_cos > half_cos_fov) {
 			float y_sin = sqrt(1-pow(y_cos, 2.0));
 			float x_sin = sqrt(1-pow(x_cos, 2.0));
@@ -239,17 +411,14 @@ void PhotonMap::renderPhotonMap() {
 			if (to_photon.x < 0) {
 				x_sin = -x_sin;
 			}
-			// cout << "y_sin: " << y_sin << ",x_sin: " << x_sin << endl;
 			i = (int)((x_sin / half_sin_fov) * size / 2.0 + size / 2.0);
 			j = (int)(-(y_sin / half_sin_fov) * size / 2.0 + size / 2.0);
-			// cout << "i: " << i << ",j: " << j << endl;
 			for ( int k = 0; k < 3; k++) {
 				image((uint)i, (uint)j, k) = 1.0;
 			}
 			count ++;
 		}
 	}
-  // cout << "count: " << count << endl;
   image.savePng( "photonmap.png" );
 }
 

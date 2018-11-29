@@ -77,6 +77,7 @@ private:
 
 	PhotonMap photon_map;
 
+	void renderRange(int start_i);
 	glm::vec3 getColor (
 		Intersection &isect,
 		const vec3 & eye,
@@ -131,6 +132,8 @@ private:
 	glm::vec3 recursive_sampling( Image & samples,double i,double j, int level, vec3 avg);
 	glm::vec3 readNormalMap(string mapName, vec2 uv);
 	glm::vec3 readTextureMap(string mapName, vec2 uv);
+	glm::vec3 getRadiance(const glm::vec3 & position, const glm::vec3 & ray_dir,
+		const glm::vec3 & normal);
 
 	std::map<std::string, image_data> textures;
 	std::map<std::string, image_data> normal_maps;

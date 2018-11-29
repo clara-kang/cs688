@@ -5,6 +5,7 @@
 #include <glm/glm.hpp>
 #include <vector>
 #include <map>
+#include <algorithm>
 
 #include "SceneNode.hpp"
 #include "GeometryNode.hpp"
@@ -17,7 +18,7 @@ struct Photon {
   vec3 dir;
   // float p[4];
   // float phi, theta;
-  short flag;
+  // short flag;
 };
 
 struct Cell {
@@ -25,9 +26,19 @@ struct Cell {
   float phi, theta;
 };
 
+struct TreeNode {
+  char axis;
+  float value;
+  Photon *photon;
+  TreeNode *left;
+  TreeNode *right;
+};
+
+
+
 class PhotonMap {
 public:
-  virtual ~PhotonMap(){};
+  virtual ~PhotonMap();
 
 	PhotonMap(const std::list<Light *> & lights, const vec3 & eye,
     const vec3 & view_dir, double fov, SceneNode * root);
@@ -35,6 +46,10 @@ public:
   void castPhotons();
   void renderPhotonMap();
   void renderProjectionMap();
+  void buildKdTree();
+  void locatePhotons(const vec3 & position, float dist_square, int n,
+  	std::vector<Photon *> *photons_found);
+  void test();
 
 private:
   std::map<int,std::vector<Cell>> projection_map;
@@ -44,9 +59,14 @@ private:
   const vec3 & eye;
   const vec3 & view_dir;
   double fov;
+  TreeNode *kd_tree;
 
   void castPrimaryRay( SceneNode *root, const glm::vec3 & start, const glm::vec3 & ray_dir,
     Intersection *isect, mat4 T, mat4 T_n, GeometryNode ** obj);
   void SurfaceInteraction(Dielectric *dielectric, const vec3 & normal, const vec3 & ray_dir,
     vec3 *new_ray_dir);
+  TreeNode *buildKdTree(std::vector<Photon> photons);
+  void freeKdTree(TreeNode *tree);
+  void locatePhotons(const vec3 & position, float dist_square, TreeNode *tree, int n,
+    std::vector<Photon *> *photons_found);
 };

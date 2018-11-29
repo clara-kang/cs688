@@ -10,6 +10,7 @@ using namespace std;
 
 #include "A4.hpp"
 #include <time.h>
+#include <thread>
 
 #define PI 3.14159
 #define EPSILON 1.0e-1
@@ -22,17 +23,24 @@ static unsigned char *bg_data;
 
 // TODO: Parse params instead
 static const bool ADAPTIVE_SAMPLING = false;
-static const bool SOFT_SHADOW = false;
 static const bool FRESNEL = true;
-static const bool PHOTON_MAP = false;
-static const bool DEPTH_OF_FIELD = false;
+// photon mapping
+static const bool PHOTON_MAP = true;
+static const float NEAR_PHOTON_DIST = 100.0f;
+static const int PHOTON_NUM_POINT = 50;
+// soft shadow
+static const bool SOFT_SHADOW = false;
 static const double LIGHT_RADIUS = 0.05;
-static const double GLOSSY_REFL_FRACTION = 0.4;
 static const double SOFT_SHADOW_N = 10;
+// glossy reflection
 static const double GLOSSY_REFL_N = 10;
+static const double GLOSSY_REFL_FRACTION = 0.4;
+// dof
+static const bool DEPTH_OF_FIELD = false;
 static const double DEPTH_OF_FIELD_N = 10;
 static const double APERTURE_SIZE = 100.0;
 static const double FOCUS = -0.0;
+
 static int bg_x, bg_y, channels;
 
 A4::A4(
@@ -97,29 +105,34 @@ void A4::A4_Render(
 	if (PHOTON_MAP) {
 		photon_map.createProjMap();
 		photon_map.castPhotons();
+		photon_map.buildKdTree();
 		photon_map.renderPhotonMap();
 		photon_map.renderProjectionMap();
-		return;
+		// photon_map.test();
 	}
-	for (int i = 0; i < w; i++) {
-		for (int j = 0; j < h; j++) {
-			// cout << "i: " << i << ",j: " << j << endl;
-			vec3 color = A4_sample_one_pixel((double)i,(double)j, false);
-			for (int k = 0; k < 3; k++) {
-					primary_samples((uint)i, (uint)j, k) = color[k];
-			}
-		}
+	std::thread ths[8];
+	for (int i = 0; i < 8; i++) {
+		ths[i] = std::thread([=]{renderRange(i);});
 	}
-	// todo: improve on efficiency
-	if (!ADAPTIVE_SAMPLING) {
-		image = primary_samples;
-	} else {
-		A4_adaptive_sampling(primary_samples);
+	for (int i = 0; i < 8; i++) {
+		ths[i].join();
 	}
 	// free bg Image
 	stbi_image_free(bg_data);
 }
 
+void A4::renderRange(int start_i) {
+	for (int i = start_i*(w/8.0); i < start_i*(w/8.0) + w/8.0; i++) {
+		// cout << "i: " << i << endl;
+		for (int j = 0; j < h; j++) {
+			// cout << "i: " << i << ",j: " << j << endl;
+			vec3 color = A4_sample_one_pixel((double)i,(double)j, false);
+			for (int k = 0; k < 3; k++) {
+					image((uint)i, (uint)j, k) = color[k];
+			}
+		}
+	}
+}
 glm::vec3 A4::get_ray_dir(double i, double j) {
 	vec3 ray_dir = ((-w/2.0 + i)*right + (h/2.0 - j)*up) *
 		pixsize_over_d + view;
@@ -176,78 +189,6 @@ glm::vec3 A4::A4_sample_one_pixel(
 		// cout << endl;
 		return color / (double)(DEPTH_OF_FIELD_N);
 	}
-}
-
-bool A4::A4_pixel_is_edge (vec3 avg, vec3 color) {
-	bool edge = false;
-	for (int k = 0; k < 3; k++) {
-		// compute the difference of pixel color to average of neighbors to detect edge
-		if (abs(avg[k] - color[k]) > COLOR_THRESHOLD) {
-			edge = true;
-			break;
-		}
-
-	}
-	return edge;
-}
-
-vec3 A4::get_neighbor_pixel_avg(int i, int j, Image & samples) {
-	vec3 avg;
-	for (int k = 0; k < 3; k++) {
-		avg[k] = 0.25*(samples((uint)i-1, (uint)j, k)+samples((uint)i+1, (uint)j, k)
-			+samples((uint)i, (uint)j+1, k)+samples((uint)i, (uint)j-1, k));
-	}
-	return avg;
-}
-
-vec3 A4::recursive_sampling( Image & samples,double i,double j, int level, vec3 avg){
-	vec3 color1 = A4_sample_one_pixel((double)i-pow(0.5,level),(double)j-pow(0.5,level),true);
-	if (A4_pixel_is_edge(avg, color1) && level < RESAMPLE_LEVEL) {
-		color1 = recursive_sampling(samples, (double)i-pow(0.5,level), (double)j-pow(0.5,level), level+1, avg);
-	}
-	vec3 color2 = A4_sample_one_pixel((double)i-pow(0.5,level),(double)j+pow(0.5,level),true);
-	if (A4_pixel_is_edge(avg, color2) & level < RESAMPLE_LEVEL) {
-		color2 = recursive_sampling(samples, (double)i-pow(0.5,level), (double)j+pow(0.5,level), level + 1, avg);
-	}
-	vec3 color3 = A4_sample_one_pixel((double)i+pow(0.5,level),(double)j-pow(0.5,level),true);
-	if (A4_pixel_is_edge(avg, color3) & level < RESAMPLE_LEVEL) {
-		color3 = recursive_sampling(samples, (double)i+pow(0.5,level), (double)j-pow(0.5,level), level + 1, avg);
-	}
-	vec3 color4 = A4_sample_one_pixel((double)i+pow(0.5,level),(double)j+pow(0.5,level),true);
-	if (A4_pixel_is_edge(avg, color4) & level < RESAMPLE_LEVEL) {
-		color4 = recursive_sampling(samples, (double)i+pow(0.5,level), (double)j+pow(0.5,level), level + 1, avg);
-	}
-	return 0.25 * (color1 + color2 + color3 + color4);
-}
-
-
-// adaptive sample the image
-void A4::A4_adaptive_sampling( Image & samples)	{
-	image = samples;
-	for (int i = 1; i < w -1; i++) {
-		for (int j = 1; j < h-1; j++) {
-			vec3 color = vec3(samples((uint)i, (uint)j, 0),samples((uint)i, (uint)j, 1),samples((uint)i, (uint)j, 2));
-			vec3 avg = get_neighbor_pixel_avg(i, j, samples);
-			bool edge = A4_pixel_is_edge (avg, color);
-			if (not_bg_map[(int)(j*w+i)] && edge) {
-				color = recursive_sampling(samples, (double)i, (double)j, 2, avg);
-			}
-			for ( int k = 0; k < 3; k++) {
-				image((uint)i, (uint)j, k) = color[k];
-			}
-		}
-	}
-	// // not performing edge detection on borders. simply copy data
-	// for ( int k = 0; k < 3; k++) {
-	// 	for (int j = 0; j < h; j++) {
-	// 		image(0,j, k) = samples(0,j, k);
-	// 		image(w-1,j, k) = samples(w-1,j, k);
-	// 	}
-	// 	for (int i = 0; i < h; i++) {
-	// 		image(i, 0, k) = samples(i, 0, k);
-	// 		image(i, h-1, k) = samples(i, h-1, k);
-	// 	}
-	// }
 }
 
 void A4::A4_Render_pixel_rec(
@@ -327,6 +268,43 @@ glm::vec3 A4::readTextureMap(string mapName, vec2 uv) {
 	return tex.get_color_at_loc(uv);
 }
 
+glm::vec3 A4::getRadiance(const glm::vec3 & position, const glm::vec3 & ray_dir,
+	const glm::vec3 & normal) {
+		// cout << "get radiance" << endl;
+		std::vector<Photon *> *photons_found = new std::vector<Photon *>();
+		photon_map.locatePhotons(position, NEAR_PHOTON_DIST*NEAR_PHOTON_DIST,
+			PHOTON_NUM_POINT, photons_found);
+		// cout << "nearby photons num: " << (*photons_found).size() << endl;
+		int hit_count = 0;
+		float R = 1.0f;
+		vec3 caustic_contrib = vec3(0,0,0);
+		vec3 photon_color = vec3(50.0f,50.0f,50.0f);
+		if ((*photons_found).size() > 0) {
+			std::push_heap((*photons_found).begin(), (*photons_found).end(),
+				[&position](const Photon *photon1, const Photon *photon2) -> bool {
+					return glm::length(photon1->pos - position) < glm::length(photon2->pos - position);
+				});
+			vector<Photon *>::iterator maxX = std::max_element((*photons_found).begin(), (*photons_found).end(),
+				[&position](const Photon *photon1, const Photon *photon2) -> bool {
+					return glm::length(photon1->pos - position) < glm::length(photon2->pos - position);
+				});
+			R = glm::length(position - (*maxX)->pos);
+			for (Photon *photon : *photons_found) {
+				if (glm::dot(photon->dir, normal) > 0) {
+					hit_count ++;
+				}
+			}
+			if (hit_count > 5 ) {
+				// caustic_contrib = photon_color * (float)hit_count/(PI * R * R);
+				// cout << "caustic_contrib: " << glm::to_string(caustic_contrib) << endl;
+				// cout << "hit_count: " << hit_count << endl;
+				caustic_contrib = vec3(0.1,0.1,0.1);
+			}
+		}
+		delete photons_found;
+		return caustic_contrib;
+}
+
 glm::vec3 A4::getColor (
 	Intersection & isect,
 	const vec3 & eye,
@@ -358,9 +336,8 @@ glm::vec3 A4::getColor (
 		vec3 ambient_contrib = vec3(0,0,0);
 		vec3 reflection_contrib = vec3(0,0,0);
 		vec3 transmission_contrib = vec3(0,0,0);
+		vec3 caustics_contrib = vec3(0,0,0);
 
-		// cout << "getColor count: " << count << endl;
-		// cout << "getColor mat: " << glm::to_string(diffuse_color) << endl;
 		// do normal mapping if necessary
 		if (isPhongMat && strlen((phongMat->m_normal_fname).c_str()) > 0) {
 			// map entry for normal map not yet created
@@ -430,6 +407,11 @@ glm::vec3 A4::getColor (
 			}
 		}
 		ambient_contrib += ambient * diffuse_color;
+		// color from photons
+		if (PHOTON_MAP) {
+			caustics_contrib = getRadiance(intersection, ray_dir, n_normal);
+			// cout << "caustic_contrib: " << glm::to_string(caustics_contrib) << endl;
+		}
 		int hit_count = 0;
 		// if reflextive material
 		if (dielectric != NULL && dielectric->m_rf_index >= 1.0f && count <= REFLECT_MAX_TIMES) {
@@ -438,15 +420,17 @@ glm::vec3 A4::getColor (
 		} else if (glossy != NULL && count <= REFLECT_MAX_TIMES) {
 			hit_count = glossyReflection(n_normal, ray_dir, intersection, *glossy, accum_dist, count, &reflection_contrib);
 		}
+		// TODO: remove
+		return caustics_contrib;
 
 		if (dielectric != NULL) {
-			return specular_contrib + (reflection_contrib + transmission_contrib);
+			return specular_contrib + (reflection_contrib + transmission_contrib) + caustics_contrib;
 		} else if (glossy != NULL) {
 			double reflection_fraction = hit_count*(GLOSSY_REFL_FRACTION/GLOSSY_REFL_N);
 			return specular_contrib + reflection_fraction * reflection_contrib * diffuse_contrib+
-				(1.0-reflection_fraction) * diffuse_contrib + ambient_contrib;
-		}else {
-			return diffuse_contrib + specular_contrib + ambient_contrib;
+				(1.0-reflection_fraction) * diffuse_contrib + ambient_contrib ;
+		} else {
+			return diffuse_contrib + specular_contrib + ambient_contrib + caustics_contrib;
 		}
 
 }

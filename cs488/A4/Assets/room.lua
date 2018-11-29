@@ -16,7 +16,7 @@ scene:translate(0, 0, -15)
 -- the floor
 plane = gr.mesh( 'plane', 'plane.obj' )
 scene:add_child(plane)
-plane:set_material(white)
+plane:set_material(grass)
 plane:scale(30, 30, 30)
 plane:translate(0, -10, 0)
 
@@ -64,10 +64,10 @@ scene:add_child(s1)
 s1:set_material(test_blue)
 
 -- The lights
-l1 = gr.light({-1, 4, 0}, {0.8, 0.8, 0.8}, {1, 0, 0}, 60000)
+l1 = gr.light({-1, 4, 0}, {0.8, 0.8, 0.8}, {1, 0, 0}, 6000)
 -- l1 = gr.light({0, 0, 40}, {0.8, 0.8, 0.8}, {1, 0, 0}, 60000)
 -- l2 = gr.light({0, 5, -20}, {0.8, 0.8, 0.8}, {1, 0, 0})
 
-gr.render(scene, 'room.png', 256, 256,
+gr.render(scene, 'room.png', 128, 128,
 	  {0, -0, 40}, {0, 0, -1}, {0, 1, 0}, 50,
 	  {0.4, 0.4, 0.4}, {l1})

@@ -384,6 +384,7 @@ int gr_render_cmd(lua_State* L)
 	Image im( width, height);
   A4 a4_instance(root->node, im, eye, view, up, fov, ambient, lights);
 	a4_instance.A4_Render();
+
     im.savePng( filename );
 
 	return 0;
