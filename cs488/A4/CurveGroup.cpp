@@ -57,6 +57,7 @@ bool CurveGroup::intersect(vec3 eye, vec3 ray_dir, Intersection *isect){
 		if (render_bb) {
 			isect->t = tmp_isect.t;
 			isect->normal = tmp_isect.normal;
+			return true;
 		} else {
 			isect->t == HUGE_VAL;
 			for (Curve c : m_curves) {

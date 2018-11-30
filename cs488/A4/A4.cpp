@@ -25,12 +25,11 @@ static unsigned char *bg_data;
 static const bool ADAPTIVE_SAMPLING = false;
 static const bool FRESNEL = true;
 // photon mapping
-static const bool PHOTON_MAP = true;
-static const float NEAR_PHOTON_DIST = 5.0f;
-static const int PHOTON_NUM_POINT = 20;
+static const bool PHOTON_MAP = false;
+static const float NEAR_PHOTON_DIST = 15.0f;
+static const int PHOTON_NUM_POINT = 100;
 // soft shadow
-static const bool SOFT_SHADOW = false;
-static const double LIGHT_RADIUS = 0.05;
+static const bool SOFT_SHADOW = true;
 static const double SOFT_SHADOW_N = 10;
 // glossy reflection
 static const double GLOSSY_REFL_N = 10;
@@ -100,9 +99,11 @@ void A4::A4_Render(
 	vec3 normal, intersection;
 	GeometryNode *obj;
 	double t;
-
+	time_t cur_time;
 	// create photon map
 	if (PHOTON_MAP) {
+		cur_time = time(NULL);
+		printf("start to photon map: %s", ctime(&cur_time));
 		photon_map.createProjMap();
 		photon_map.castPhotons();
 		photon_map.buildKdTree();
@@ -110,6 +111,8 @@ void A4::A4_Render(
 		photon_map.renderProjectionMap();
 		// photon_map.test();
 	}
+	cur_time = time(NULL);
+	printf("start to render: %s", ctime(&cur_time));
 	std::thread ths[8];
 	for (int i = 0; i < 8; i++) {
 		ths[i] = std::thread([=]{renderRange(i);});
@@ -117,6 +120,8 @@ void A4::A4_Render(
 	for (int i = 0; i < 8; i++) {
 		ths[i].join();
 	}
+	cur_time = time(NULL);
+	printf("finished rendering: %s", ctime(&cur_time));
 	// free bg Image
 	stbi_image_free(bg_data);
 }
@@ -277,6 +282,7 @@ glm::vec3 A4::getRadiance(const glm::vec3 & position, const glm::vec3 & ray_dir,
 		// cout << "nearby photons num: " << (*photons_found).size() << endl;
 		int hit_count = 0;
 		float R = 1.0f;
+		float k = 2.0f;
 		vec3 caustic_contrib = vec3(0,0,0);
 		vec3 photon_color = vec3(0.05f,0.05f,0.05f);
 		if ((*photons_found).size() > 0) {
@@ -293,25 +299,21 @@ glm::vec3 A4::getRadiance(const glm::vec3 & position, const glm::vec3 & ray_dir,
 					hit_count ++;
 					++it;
 				} else {
-					// cout << "erase!" << endl;
 					(*photons_found).erase(it);
 				}
 			}
-
 			if (hit_count > 0 ) {
-				// cout << "caustic_contrib: " << glm::to_string(caustic_contrib) << endl;
 				vector<Photon *>::iterator farthest_photon = std::max_element((*photons_found).begin(), (*photons_found).end(),
 					[&position](const Photon *photon1, const Photon *photon2) -> bool {
 						return glm::length(photon1->pos - position) < glm::length(photon2->pos - position);
 					});
+				R = glm::length(position - (*farthest_photon)->pos);
 				for (it = (*photons_found).begin(); it != (*photons_found).end();++it) {
 					Photon *photon = *(it);
-					caustic_contrib += photon->color * (1.0f - glm::length(photon->pos - position)/R);
+					caustic_contrib += photon->color * (1.0f - glm::length(photon->pos - position)/(k*R));
 				}
-				R = glm::length(position - (*farthest_photon)->pos);
-				caustic_contrib = caustic_contrib /(PI * R * R);
-				// cout << "hit_count: " << hit_count << endl;
-				// cout << "hit_count: " << hit_count << endl;
+				caustic_contrib = caustic_contrib /(PI * R * R * (1.0f-0.66f/k));
+				// cout << "caustic_contrib: " << glm::to_string(caustic_contrib) << endl;
 			}
 		}
 		delete photons_found;
@@ -385,7 +387,7 @@ glm::vec3 A4::getColor (
 					for (int i = 0; i < SOFT_SHADOW_N + 1; i++) {
 						vec3 light_offset = vec3(0.0,0.0,0.0);
 						if (i>0) {
-							light_offset = light_u * randoms.at(i-1) * LIGHT_RADIUS + light_v * randomr.at(i-1) * LIGHT_RADIUS;
+							light_offset = light_u * randoms.at(i-1) * light->size + light_v * randomr.at(i-1) * light->size;
 						}
 						tmp_isect1.t = HUGE_VAL;
 						A4_Render_pixel_rec (true, root, start, glm::normalize(to_light_dir+light_offset), &tmp_isect1, mat4(1.0), mat4(1.0), &node);

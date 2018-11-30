@@ -14,6 +14,7 @@ Light::Light()
   falloff[1] = 0.0;
   falloff[2] = 0.0;
   photon_num = 0;
+  size = 0;
 }
 
 std::ostream& operator<<(std::ostream& out, const Light& l)

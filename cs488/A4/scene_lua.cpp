@@ -330,7 +330,9 @@ int gr_light_cmd(lua_State* L)
 
   if (stack_size > 4) {
     int photon_num = luaL_checknumber(L, 4);
+    float size = luaL_checknumber(L, 5);
     l.photon_num = photon_num;
+    l.size = size;
   }
   data->light = new Light(l);
 
