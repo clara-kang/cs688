@@ -34,6 +34,9 @@ struct image_data {
 };
 
 public:
+	// depth of field params
+	double aperture_size = 100.0;
+	double focus_loc = 0.0;
 	A4(
 		// What to render
 		SceneNode * root,

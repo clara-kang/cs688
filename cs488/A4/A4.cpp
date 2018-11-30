@@ -21,7 +21,6 @@ static const double REFLECT_MAX_TIMES = 3;
 static const double RESAMPLE_LEVEL = 4;
 static unsigned char *bg_data;
 
-// TODO: Parse params instead
 static const bool ADAPTIVE_SAMPLING = false;
 static const bool FRESNEL = true;
 // photon mapping
@@ -37,8 +36,6 @@ static const double GLOSSY_REFL_FRACTION = 0.4;
 // dof
 static const bool DEPTH_OF_FIELD = false;
 static const double DEPTH_OF_FIELD_N = 10;
-static const double APERTURE_SIZE = 100.0;
-static const double FOCUS = -0.0;
 
 static int bg_x, bg_y, channels;
 
@@ -179,12 +176,12 @@ glm::vec3 A4::A4_sample_one_pixel(
 		return A4_sample_one_dir(ray_dir, start, i, j, resample);
 	} else {
 		vec3 offset_ray_dir;
-		double focus_d = (FOCUS - eye[2])/ray_dir[2];
+		double focus_d = (focus_loc - eye[2])/ray_dir[2];
 		// cout << "focus_d"
 		vec3 dest = eye + focus_d * ray_dir;
 		// cout << "dest: " << glm::to_string(dest) << endl;
 		for (int i=0; i < DEPTH_OF_FIELD_N; i++) {
-			start = eye + randoms[i]*APERTURE_SIZE*vec3(0,1,0) + randoms[i]*APERTURE_SIZE*vec3(1,0,0);
+			start = eye + randoms[i]*aperture_size*vec3(0,1,0) + randoms[i]*aperture_size*vec3(1,0,0);
 			// cout << "start to eye: " << glm::to_string(start-eye) << endl;
 			offset_ray_dir = glm::normalize(dest - start);
 			vec3 sample_color = A4_sample_one_dir(offset_ray_dir, start, i, j, true);

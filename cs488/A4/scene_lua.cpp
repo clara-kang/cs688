@@ -348,6 +348,7 @@ int gr_render_cmd(lua_State* L)
 {
   GRLUA_DEBUG_CALL;
 
+  int stack_size = lua_gettop(L);
   gr_node_ud* root = (gr_node_ud*)luaL_checkudata(L, 1, "gr.node");
   luaL_argcheck(L, root != 0, 1, "Root node expected");
 
@@ -385,6 +386,14 @@ int gr_render_cmd(lua_State* L)
 
 	Image im( width, height);
   A4 a4_instance(root->node, im, eye, view, up, fov, ambient, lights);
+
+  if (stack_size > 11) {
+    double aperture_size = luaL_checknumber(L, 11);
+    double focus_loc = luaL_checknumber(L, 12);
+    cout << "aperture_size: " << aperture_size << endl;
+    a4_instance.aperture_size = aperture_size;
+    a4_instance.focus_loc = focus_loc;
+  }
 	a4_instance.A4_Render();
 
     im.savePng( filename );
