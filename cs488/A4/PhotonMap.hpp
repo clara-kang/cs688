@@ -52,6 +52,8 @@ public:
   	std::vector<Photon *> *photons_found);
   void test();
 
+  void renderKDtree();
+
 private:
   std::map<int,std::vector<Cell>> projection_map;
   std::vector<Photon> photon_map;
@@ -70,4 +72,7 @@ private:
   void freeKdTree(TreeNode *tree);
   void locatePhotons(const vec3 & position, float dist_square, TreeNode *tree, int n,
     std::vector<Photon *> *photons_found);
+
+  void renderPhoton(Image *image, Photon *photon);
+  void renderKDtreeRec(Image *image, TreeNode *tree);
 };

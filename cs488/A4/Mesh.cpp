@@ -87,7 +87,7 @@ Mesh::Mesh( const std::string& fname )
 			}
 		} else if ( code == "vt") {
 			ifs >> tx >> ty;
-			m_uvs.push_back( glm::vec2 (std::fmod(tx,1.0), std::fmod(ty,1.0)));
+			m_uvs.push_back( glm::vec2 (tx, ty));
 		} else if ( code == "vn") {
 			ifs >> vnx >> vny >> vnz;
 			m_vnormals.push_back( glm::vec3 (vnx, vny, vnz));
@@ -165,7 +165,13 @@ bool Mesh::intersectTriangle(vec3 eye, vec3 ray_dir, Triangle triangle, Intersec
 	isect->t = detT / detA;
 	if (isect->t > 0) {
 		if (has_uv) {
-			isect->uv = m_uvs.at(triangle.uv1) * (1-beta-gamma) + m_uvs.at(triangle.uv2) * beta + m_uvs.at(triangle.uv3) * gamma;
+			vec2 uv = m_uvs.at(triangle.uv1) * (1-beta-gamma) + m_uvs.at(triangle.uv2) * beta + m_uvs.at(triangle.uv3) * gamma;
+			uv[0] = fmod(uv[0]+10.0, 1.0);
+			uv[1] = fmod(uv[1]+10.0, 1.0);
+			if (!(uv[0] >= 0 && uv[0] <=1 && uv[1] >= 0 && uv[1] <=1)) {
+				cout << "wrong" << endl;
+			}
+			isect->uv = uv;
 			vec2 deltaUV1 =  m_uvs.at(triangle.uv2) - m_uvs.at(triangle.uv1);
 			vec2 deltaUV2 = m_uvs.at(triangle.uv3) - m_uvs.at(triangle.uv1);
 			double r = 1.0/(deltaUV1[0]*deltaUV2[1] - deltaUV1[1]*deltaUV2[0]);

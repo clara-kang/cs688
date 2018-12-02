@@ -60,9 +60,10 @@ bool NonhierSphere::intersect(vec3 eye, vec3 ray_dir, Intersection *isect) {
     return false;
   }
   if (isect->t > 0) {
-    isect->normal = glm::normalize(eye + (float)(isect->t)*ray_dir - m_pos);
-    double u = 0.5 + atan2((isect->normal)[0],(isect->normal)[2])/(2*PI);
-    double v = 0.5 + asin((isect->normal)[1]/m_radius)/PI;
+    vec3 normal = eye + (float)(isect->t)*ray_dir - m_pos;
+    isect->normal = glm::normalize(normal);
+    double u = 0.5 + atan2(normal[0],normal[2])/(2*PI);
+    double v = 0.5 + asin(normal[1]/m_radius)/PI;
     isect->uv = vec2(u,v);
     isect->tangent = vec3(-(isect->normal)[2],0,(isect->normal)[0]);
     return true;

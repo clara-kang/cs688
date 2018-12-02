@@ -3,6 +3,7 @@
 #pragma once
 
 #include <glm/glm.hpp>
+#include <glm/ext.hpp>
 #include <map>
 #include <iostream>
 #include <vector>
@@ -23,11 +24,8 @@ struct image_data {
 	unsigned char *im_data;
 
 	glm::vec3 get_color_at_loc(glm::vec2 uv) {
-		// cout << "u: " << uv[0] << ", v: " << uv[1] << endl;
-		int i = std::max(0, (int)(uv[0] * x));
-		int j = std::max(0, (int)(uv[1] * y));
-		i = std::min(i, x-1);
-		j = std::min(j, y-1);
+		int i = (int)(uv[0] * x);
+		int j = (int)(uv[1] * y);
 		unsigned char* pixelOffset = im_data + (int)(i + x * j) * channel;
 		return glm::vec3((uint)pixelOffset[0]/255.0,(uint)pixelOffset[1]/255.0,(uint)pixelOffset[2]/255.0);
 	}

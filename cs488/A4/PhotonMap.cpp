@@ -19,11 +19,11 @@ using namespace glm;
 #define GLOSSY 3
 #define DIFFUSE 1
 
-static const int NUM_INC_PROJ_MAP = 100;
-static const float PHOTON_ATTEN = 0.06f;
+static const int NUM_INC_PROJ_MAP = 500;
+static const float PHOTON_ATTEN = 0.001f;
 static const int REFLECT_MAX_TIMES = 3;
 static const float INC_PHI = PI / NUM_INC_PROJ_MAP;
-static const float INC_THETA = 2.0f * PI / NUM_INC_PROJ_MAP;
+static const float INC_THETA = PI / NUM_INC_PROJ_MAP;
 
 
 
@@ -61,16 +61,15 @@ void PhotonMap::castPrimaryRay(
 		GeometryNode * gnode = static_cast<GeometryNode *>(root);
 		Primitive *prim = gnode->m_primitive;
 		Intersection tmp_isect = Intersection();
-		// test dielectric
-			bool intersect = prim->intersect(vec3(T_new*vec4(start,1.0)),
-				vec3(T_new*vec4(ray_dir,0.0)), &tmp_isect);
-			if (intersect && tmp_isect.t < isect->t) {
-				isect->t = tmp_isect.t;
-				isect->normal = vec3(T_n_new*vec4(tmp_isect.normal, 0.0));
-				isect->tangent = vec3(glm::inverse(T_new)*vec4(tmp_isect.tangent, 0.0));
-				isect->uv = tmp_isect.uv;
-				*obj = gnode;
-			}
+		bool intersect = prim->intersect(vec3(T_new*vec4(start,1.0)),
+			vec3(T_new*vec4(ray_dir,0.0)), &tmp_isect);
+		if (intersect && tmp_isect.t < isect->t) {
+			isect->t = tmp_isect.t;
+			isect->normal = vec3(T_n_new*vec4(tmp_isect.normal, 0.0));
+			isect->tangent = vec3(glm::inverse(T_new)*vec4(tmp_isect.tangent, 0.0));
+			isect->uv = tmp_isect.uv;
+			*obj = gnode;
+		}
 	}
 	for (SceneNode *child : root->children) {
 		castPrimaryRay(child, start, ray_dir, isect, T_new, T_n_new, obj);
@@ -86,10 +85,10 @@ void PhotonMap::createProjMap() {
       break;
     }
     for(int i = 0; i < NUM_INC_PROJ_MAP; i++) {
-      for(int j = 0; j < NUM_INC_PROJ_MAP; j++) {
+      for(int j = 0; j < NUM_INC_PROJ_MAP * 2.0; j++) {
         float phi = i * INC_PHI;
         float theta = j * INC_THETA;
-        vec3 ray_dir = glm::normalize(vec3(sin(phi)*sin(theta), cos(phi), sin(phi)*cos(theta)));
+        vec3 ray_dir = glm::normalize(vec3(sin(phi)*cos(theta), cos(phi), sin(phi)*sin(theta)));
         isect.t = HUGE_VAL;
         castPrimaryRay( root, light->position, ray_dir, &isect, mat4(1.0), mat4(1.0), &node);
         if (isect.t < HUGE_VAL) {
@@ -128,7 +127,7 @@ void PhotonMap::castPhotons() {
 	for (Light *light : lights) {
 		int photons_per_cell = light->photon_num / (projection_map[light_index]).size();
 		vec3 photon_col = light->colour * PHOTON_ATTEN;
-		float dim = sqrt(photons_per_cell);
+		float dim = sqrt(photons_per_cell/2.0f);
 		float inc_phi = 2.0f * INC_PHI / dim;
 		float inc_theta = 2.0f * INC_THETA / dim;
 		float phi, theta;
@@ -136,11 +135,11 @@ void PhotonMap::castPhotons() {
 		for (Cell cell : projection_map[light_index]) {
 			for (int i = 0; i < dim; i++) {
 				random_offset_phi = INC_PHI * getRandomNum()/5.0;
-				for (int j = 0; j < dim; j++) {
+				for (int j = 0; j < 4.0 * dim; j++) {
 					random_offset_theta = INC_THETA * getRandomNum()/5.0;
 					phi = cell.phi - INC_PHI + random_offset_phi + i * inc_phi;
 					theta = cell.theta - INC_THETA + random_offset_theta + j * inc_theta;
-	        vec3 ray_dir = glm::normalize(vec3(sin(phi)*sin(theta), cos(phi), sin(phi)*cos(theta)));
+	        vec3 ray_dir = glm::normalize(vec3(sin(phi)*cos(theta), cos(phi), sin(phi)*sin(theta)));
 					isect.t = HUGE_VAL;
 					castPrimaryRay( root, light->position, ray_dir, &isect, mat4(1.0), mat4(1.0), &node);
 					if (isect.t < HUGE_VAL) {
@@ -230,7 +229,7 @@ bool lessX(const Photon& photon1, const Photon& photon2) {
 }
 
 bool lessY(const Photon& photon1, const Photon& photon2) {
-	return photon1.pos[2] < photon2.pos[2];
+	return photon1.pos[1] < photon2.pos[1];
 }
 
 bool lessZ(const Photon& photon1, const Photon& photon2) {
@@ -288,6 +287,9 @@ void PhotonMap::locatePhotons(const vec3 & position, float dist_square, int n,
 
 void PhotonMap::locatePhotons(const vec3 & position, float dist_square, TreeNode *tree,
 	int n, std::vector<Photon *> *photons_found) {
+		if (tree == NULL) {
+			return;
+		}
 		if (tree->left == NULL && tree->right == NULL) {
 			float dist_to_photon = glm::length(position - (tree->photon)->pos);
 			if ( pow(dist_to_photon, 2.0) < dist_square ) {
@@ -297,34 +299,37 @@ void PhotonMap::locatePhotons(const vec3 & position, float dist_square, TreeNode
 						return glm::length(photon1->pos - position) < glm::length(photon2->pos - position);
 					});
 				if ((*photons_found).size() > n) {
-					std::pop_heap((*photons_found).begin(), (*photons_found).end());
+					std::pop_heap((*photons_found).begin(), (*photons_found).end(),
+					[&position](const Photon *photon1, const Photon *photon2) -> bool {
+						return glm::length(photon1->pos - position) < glm::length(photon2->pos - position);
+					});
 					(*photons_found).pop_back();
 				}
 			}
 		} else {
-			float dist_to_plane;
-			switch (tree->axis) {
-				case 'x':
-					dist_to_plane = position[0] - tree->value;
-					break;
-				case 'y':
-					dist_to_plane = position[1] - tree->value;
-					break;
-				case 'z':
-					dist_to_plane = position[2] - tree->value;
-			}
+			// float dist_to_plane;
+			// switch (tree->axis) {
+			// 	case 'x':
+			// 		dist_to_plane = position[0] - tree->value;
+			// 		break;
+			// 	case 'y':
+			// 		dist_to_plane = position[1] - tree->value;
+			// 		break;
+			// 	case 'z':
+			// 		dist_to_plane = position[2] - tree->value;
+			// }
 			//on the left of plane
-			if (dist_to_plane < 0) {
+			// if (dist_to_plane < 0) {
 				locatePhotons(position, dist_square, tree->left, n, photons_found);
-				if (pow(dist_to_plane,2.0) < dist_square) {
+				// if (pow(dist_to_plane,2.0) < dist_square) {
 					locatePhotons(position, dist_square, tree->right, n, photons_found);
-				}
-			} else {
-				locatePhotons(position, dist_square, tree->right, n, photons_found);
-				if (pow(dist_to_plane,2.0) < dist_square) {
-					locatePhotons(position, dist_square, tree->left, n, photons_found);
-				}
-			}
+				// }
+			// } else {
+			// 	locatePhotons(position, dist_square, tree->right, n, photons_found);
+			// 	if (pow(dist_to_plane,2.0) < dist_square) {
+			// 		locatePhotons(position, dist_square, tree->left, n, photons_found);
+			// 	}
+			// }
 		}
 }
 
@@ -458,4 +463,50 @@ void PhotonMap::renderProjectionMap() {
 		}
 	}
   image.savePng( "projection_map.png" );
+}
+
+void PhotonMap::renderKDtree() {
+	  Image *image = new Image(256,256);
+		renderKDtreeRec(image, kd_tree->left);
+		image->savePng( "kdtree.png" );
+}
+
+void PhotonMap::renderKDtreeRec(Image *image, TreeNode *tree) {
+	if (tree->left != NULL) {
+		renderKDtreeRec(image, tree->left);
+	}
+	if (tree->right != NULL) {
+		renderKDtreeRec(image, tree->right);
+	}
+	if (tree->left == NULL && tree->right == NULL) {
+		cout << "reach photon" << endl;
+		renderPhoton(image, tree->photon);
+	}
+}
+
+void PhotonMap::renderPhoton(Image *image, Photon *photon) {
+  float size = 256.0f;
+  float half_fov = (fov/2.0f) * PI/ 180.0f;
+  float half_cos_fov = cos(half_fov);
+  float half_sin_fov = sin(half_fov);
+	vec3 to_photon;
+
+	to_photon = photon->pos - eye;
+	float y_cos = glm::dot(glm::normalize(vec3(0,to_photon.y, to_photon.z)), view_dir);
+	float x_cos = glm::dot(glm::normalize(vec3(to_photon.x, 0,to_photon.z)), view_dir);
+	if (y_cos > half_cos_fov && x_cos > half_cos_fov) {
+		float y_sin = sqrt(1-pow(y_cos, 2.0));
+		float x_sin = sqrt(1-pow(x_cos, 2.0));
+		if (to_photon.y < 0) {
+			y_sin = -y_sin;
+		}
+		if (to_photon.x < 0) {
+			x_sin = -x_sin;
+		}
+		int i = (int)((x_sin / half_sin_fov) * size / 2.0 + size / 2.0);
+		int j = (int)(-(y_sin / half_sin_fov) * size / 2.0 + size / 2.0);
+		for ( int k = 0; k < 3; k++) {
+			(*image)((uint)i, (uint)j, k) = 1.0;
+		}
+	}
 }

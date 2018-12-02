@@ -1,16 +1,14 @@
 // Fall 2018
 
-#include <glm/ext.hpp>
-
-using namespace glm;
-using namespace std;
-
 #define STB_IMAGE_IMPLEMENTATION
 #include "stb_image.h"
 
 #include "A4.hpp"
 #include <time.h>
 #include <thread>
+
+using namespace glm;
+using namespace std;
 
 #define PI 3.14159
 #define EPSILON 1.0e-1
@@ -24,18 +22,18 @@ static unsigned char *bg_data;
 static const bool ADAPTIVE_SAMPLING = false;
 static const bool FRESNEL = true;
 // photon mapping
-static const bool PHOTON_MAP = false;
-static const float NEAR_PHOTON_DIST = 15.0f;
-static const int PHOTON_NUM_POINT = 100;
+static const bool PHOTON_MAP = true;
+static const float NEAR_PHOTON_DIST = 20.0f;
+static const int PHOTON_NUM_POINT = 50;
 // soft shadow
-static const bool SOFT_SHADOW = true;
+static const bool SOFT_SHADOW = false;
 static const double SOFT_SHADOW_N = 10;
 // glossy reflection
 static const double GLOSSY_REFL_N = 10;
-static const double GLOSSY_REFL_FRACTION = 0.4;
+static const double GLOSSY_REFL_FRACTION = 0.8;
 // dof
 static const bool DEPTH_OF_FIELD = false;
-static const double DEPTH_OF_FIELD_N = 10;
+static const double DEPTH_OF_FIELD_N = 20;
 
 static int bg_x, bg_y, channels;
 
@@ -73,7 +71,7 @@ photon_map(PhotonMap(lights, eye, view, fovy, root)) {
 	w = image.width();
 	h = image.height();
 	srand(time(NULL));
-	for (int i = 0; i < SOFT_SHADOW_N; i++) {
+	for (int i = 0; i < fmax(fmax(GLOSSY_REFL_N,SOFT_SHADOW_N),DEPTH_OF_FIELD_N); i++) {
 		double r1 = (rand()%10+1.0)/10.0;
 		double r2 = (rand()%10+1.0)/10.0;
 		randoms.push_back(r1);
@@ -104,9 +102,11 @@ void A4::A4_Render(
 		photon_map.createProjMap();
 		photon_map.castPhotons();
 		photon_map.buildKdTree();
-		photon_map.renderPhotonMap();
+		// photon_map.renderKDtree();
 		photon_map.renderProjectionMap();
+		photon_map.renderPhotonMap();
 		// photon_map.test();
+		// return;
 	}
 	cur_time = time(NULL);
 	printf("start to render: %s", ctime(&cur_time));
@@ -181,7 +181,7 @@ glm::vec3 A4::A4_sample_one_pixel(
 		vec3 dest = eye + focus_d * ray_dir;
 		// cout << "dest: " << glm::to_string(dest) << endl;
 		for (int i=0; i < DEPTH_OF_FIELD_N; i++) {
-			start = eye + randoms[i]*aperture_size*vec3(0,1,0) + randoms[i]*aperture_size*vec3(1,0,0);
+			start = eye + (randoms[i]-0.5)*aperture_size*vec3(0,1,0) + (randoms[i]-0.5)*aperture_size*vec3(1,0,0);
 			// cout << "start to eye: " << glm::to_string(start-eye) << endl;
 			offset_ray_dir = glm::normalize(dest - start);
 			vec3 sample_color = A4_sample_one_dir(offset_ray_dir, start, i, j, true);
@@ -281,37 +281,22 @@ glm::vec3 A4::getRadiance(const glm::vec3 & position, const glm::vec3 & ray_dir,
 		float R = 1.0f;
 		float k = 2.0f;
 		vec3 caustic_contrib = vec3(0,0,0);
-		vec3 photon_color = vec3(0.05f,0.05f,0.05f);
 		if ((*photons_found).size() > 0) {
-			// std::push_heap((*photons_found).begin(), (*photons_found).end(),
-			// 	[&position](const Photon *photon1, const Photon *photon2) -> bool {
-			// 		return glm::length(photon1->pos - position) < glm::length(photon2->pos - position);
-			// 	});
-			// std::pop_heap((*photons_found).begin(), (*photons_found).end());
-			// vector<Photon *>::iterator farthest_photon = (*photons_found).pop_back();
 			vector<Photon *>::iterator it;
-			for (it = (*photons_found).begin(); it != (*photons_found).end();) {
+			vector<Photon *>::iterator farthest_photon = std::max_element((*photons_found).begin(), (*photons_found).end(),
+				[&position](const Photon *photon1, const Photon *photon2) -> bool {
+					return glm::length(photon1->pos - position) < glm::length(photon2->pos - position);
+				});
+			R = glm::length(position - (*farthest_photon)->pos);
+			// cout << "R: " << R << endl;
+			for (it = (*photons_found).begin(); it != (*photons_found).end();++it) {
 				Photon *photon = *(it);
-				if (glm::dot(photon->dir, -normal) > 0) {
-					hit_count ++;
-					++it;
-				} else {
-					(*photons_found).erase(it);
-				}
+				caustic_contrib += photon->color * (1.0f - glm::length(photon->pos - position)/(k*R));
+				// caustic_contrib += photon->color;
 			}
-			if (hit_count > 0 ) {
-				vector<Photon *>::iterator farthest_photon = std::max_element((*photons_found).begin(), (*photons_found).end(),
-					[&position](const Photon *photon1, const Photon *photon2) -> bool {
-						return glm::length(photon1->pos - position) < glm::length(photon2->pos - position);
-					});
-				R = glm::length(position - (*farthest_photon)->pos);
-				for (it = (*photons_found).begin(); it != (*photons_found).end();++it) {
-					Photon *photon = *(it);
-					caustic_contrib += photon->color * (1.0f - glm::length(photon->pos - position)/(k*R));
-				}
-				caustic_contrib = caustic_contrib /(PI * R * R * (1.0f-0.66f/k));
-				// cout << "caustic_contrib: " << glm::to_string(caustic_contrib) << endl;
-			}
+			caustic_contrib = caustic_contrib /(PI * R * R * (1.0f-0.66f/k));
+			// caustic_contrib = caustic_contrib /(PI * R * R);
+			// cout << "caustic_contrib: " << glm::to_string(caustic_contrib) << endl;
 		}
 		delete photons_found;
 		return caustic_contrib;
@@ -358,7 +343,16 @@ glm::vec3 A4::getColor (
 			vec3 shifted_normal = n_normal + normal_shift[0]*n_tangent + normal_shift[1]*bitangent + normal_shift[2]*n_normal;
 			n_normal = glm::normalize(shifted_normal);
 		}
-
+		// read texture
+		if (isPhongMat && strlen((phongMat->m_tex_fname).c_str()) > 0) {
+				diffuse_color = readTextureMap(phongMat->m_tex_fname, isect.uv);
+				specular_color = diffuse_color;
+		}
+		// color from photons
+		if (PHOTON_MAP) {
+			caustics_contrib = getRadiance(intersection, ray_dir, n_normal);
+			// cout << "caustic_contrib: " << glm::to_string(caustics_contrib) << endl;
+		}
 		for (Light *light : lights) {
 			vec3 to_light = light->position - intersection;
 			to_light_dir = glm::normalize(to_light);
@@ -367,11 +361,6 @@ glm::vec3 A4::getColor (
 			// test if facing light
 			double normal_dot_light = glm::dot(to_light_dir, n_normal);
 			if (normal_dot_light > 0) {
-				// read texture
-				if (isPhongMat && strlen((phongMat->m_tex_fname).c_str()) > 0) {
-						diffuse_color = readTextureMap(phongMat->m_tex_fname, isect.uv);
-						specular_color = diffuse_color;
-				}
 				start = intersection + EPSILON*to_light_dir;
 				// attenuation
 				double dist = accum_dist + glm::length(light->position - intersection);
@@ -419,11 +408,6 @@ glm::vec3 A4::getColor (
 			}
 		}
 		ambient_contrib += ambient * diffuse_color;
-		// color from photons
-		if (PHOTON_MAP) {
-			caustics_contrib = getRadiance(intersection, ray_dir, n_normal);
-			// cout << "caustic_contrib: " << glm::to_string(caustics_contrib) << endl;
-		}
 		int hit_count = 0;
 		// if reflextive material
 		if (dielectric != NULL && dielectric->m_rf_index >= 1.0f && count <= REFLECT_MAX_TIMES) {
