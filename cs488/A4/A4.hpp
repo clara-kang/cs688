@@ -25,7 +25,7 @@ struct image_data {
 
 	glm::vec3 get_color_at_loc(glm::vec2 uv) {
 		int i = (int)(uv[0] * x);
-		int j = (int)(uv[1] * y);
+		int j = (int)((1.0-uv[1]) * y);
 		unsigned char* pixelOffset = im_data + (int)(i + x * j) * channel;
 		return glm::vec3((uint)pixelOffset[0]/255.0,(uint)pixelOffset[1]/255.0,(uint)pixelOffset[2]/255.0);
 	}

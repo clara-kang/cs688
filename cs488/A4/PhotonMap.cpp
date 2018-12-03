@@ -19,7 +19,7 @@ using namespace glm;
 #define GLOSSY 3
 #define DIFFUSE 1
 
-static const int NUM_INC_PROJ_MAP = 500;
+static const int NUM_INC_PROJ_MAP = 600;
 static const float PHOTON_ATTEN = 0.001f;
 static const int REFLECT_MAX_TIMES = 3;
 static const float INC_PHI = PI / NUM_INC_PROJ_MAP;
@@ -53,7 +53,8 @@ void PhotonMap::castPrimaryRay(
 	Intersection *isect,
 	mat4 T,
 	mat4 T_n,
-	GeometryNode ** obj
+	GeometryNode ** obj,
+	bool shadow_ray
 ) {
 	mat4 T_new = root->invtrans * T;
 	mat4 T_n_new = T_n * glm::transpose(root->invtrans);
@@ -62,17 +63,19 @@ void PhotonMap::castPrimaryRay(
 		Primitive *prim = gnode->m_primitive;
 		Intersection tmp_isect = Intersection();
 		bool intersect = prim->intersect(vec3(T_new*vec4(start,1.0)),
-			vec3(T_new*vec4(ray_dir,0.0)), &tmp_isect);
+			vec3(T_new*vec4(ray_dir,0.0)), &tmp_isect, shadow_ray);
 		if (intersect && tmp_isect.t < isect->t) {
 			isect->t = tmp_isect.t;
-			isect->normal = vec3(T_n_new*vec4(tmp_isect.normal, 0.0));
-			isect->tangent = vec3(glm::inverse(T_new)*vec4(tmp_isect.tangent, 0.0));
-			isect->uv = tmp_isect.uv;
 			*obj = gnode;
+			if (!shadow_ray) {
+				isect->normal = vec3(T_n_new*vec4(tmp_isect.normal, 0.0));
+				isect->tangent = vec3(glm::inverse(T_new)*vec4(tmp_isect.tangent, 0.0));
+				isect->uv = tmp_isect.uv;
+			}
 		}
 	}
 	for (SceneNode *child : root->children) {
-		castPrimaryRay(child, start, ray_dir, isect, T_new, T_n_new, obj);
+		castPrimaryRay(child, start, ray_dir, isect, T_new, T_n_new, obj, shadow_ray);
 	}
 }
 
@@ -90,7 +93,7 @@ void PhotonMap::createProjMap() {
         float theta = j * INC_THETA;
         vec3 ray_dir = glm::normalize(vec3(sin(phi)*cos(theta), cos(phi), sin(phi)*sin(theta)));
         isect.t = HUGE_VAL;
-        castPrimaryRay( root, light->position, ray_dir, &isect, mat4(1.0), mat4(1.0), &node);
+        castPrimaryRay( root, light->position, ray_dir, &isect, mat4(1.0), mat4(1.0), &node, true);
         if (isect.t < HUGE_VAL) {
 					Dielectric *dielectric = dynamic_cast<Dielectric *>(node->m_material);
 					if (dielectric != NULL) {
@@ -125,6 +128,10 @@ void PhotonMap::castPhotons() {
 	GeometryNode *node;
 	vec3 rf_ray_dir, intersection;
 	for (Light *light : lights) {
+		if (projection_map[light_index].size() == 0) {
+			cout << "empty projection map for light!" << endl;
+			continue;
+		}
 		int photons_per_cell = light->photon_num / (projection_map[light_index]).size();
 		vec3 photon_col = light->colour * PHOTON_ATTEN;
 		float dim = sqrt(photons_per_cell/2.0f);
@@ -141,7 +148,7 @@ void PhotonMap::castPhotons() {
 					theta = cell.theta - INC_THETA + random_offset_theta + j * inc_theta;
 	        vec3 ray_dir = glm::normalize(vec3(sin(phi)*cos(theta), cos(phi), sin(phi)*sin(theta)));
 					isect.t = HUGE_VAL;
-					castPrimaryRay( root, light->position, ray_dir, &isect, mat4(1.0), mat4(1.0), &node);
+					castPrimaryRay( root, light->position, ray_dir, &isect, mat4(1.0), mat4(1.0), &node, false);
 					if (isect.t < HUGE_VAL) {
 						Dielectric *dielectric = dynamic_cast<Dielectric *>(node->m_material);
 						if (dielectric != NULL) {
@@ -150,7 +157,7 @@ void PhotonMap::castPhotons() {
 							do {
 								SurfaceInteraction(dielectric, isect.normal, ray_dir, &ray_dir);
 								isect.t = HUGE_VAL;
-								castPrimaryRay( root, intersection, ray_dir, &isect, mat4(1.0), mat4(1.0), &node);
+								castPrimaryRay( root, intersection, ray_dir, &isect, mat4(1.0), mat4(1.0), &node, false);
 								if (isect.t == HUGE_VAL) {
 									break;
 								} else {
@@ -307,29 +314,29 @@ void PhotonMap::locatePhotons(const vec3 & position, float dist_square, TreeNode
 				}
 			}
 		} else {
-			// float dist_to_plane;
-			// switch (tree->axis) {
-			// 	case 'x':
-			// 		dist_to_plane = position[0] - tree->value;
-			// 		break;
-			// 	case 'y':
-			// 		dist_to_plane = position[1] - tree->value;
-			// 		break;
-			// 	case 'z':
-			// 		dist_to_plane = position[2] - tree->value;
-			// }
-			//on the left of plane
-			// if (dist_to_plane < 0) {
+			float dist_to_plane;
+			switch (tree->axis) {
+				case 'x':
+					dist_to_plane = position[0] - tree->value;
+					break;
+				case 'y':
+					dist_to_plane = position[1] - tree->value;
+					break;
+				case 'z':
+					dist_to_plane = position[2] - tree->value;
+			}
+			// on the left of plane
+			if (dist_to_plane < 0) {
 				locatePhotons(position, dist_square, tree->left, n, photons_found);
-				// if (pow(dist_to_plane,2.0) < dist_square) {
+				if (pow(dist_to_plane,2.0) < dist_square) {
 					locatePhotons(position, dist_square, tree->right, n, photons_found);
-				// }
-			// } else {
-			// 	locatePhotons(position, dist_square, tree->right, n, photons_found);
-			// 	if (pow(dist_to_plane,2.0) < dist_square) {
-			// 		locatePhotons(position, dist_square, tree->left, n, photons_found);
-			// 	}
-			// }
+				}
+			} else {
+				locatePhotons(position, dist_square, tree->right, n, photons_found);
+				if (pow(dist_to_plane,2.0) < dist_square) {
+					locatePhotons(position, dist_square, tree->left, n, photons_found);
+				}
+			}
 		}
 }
 
@@ -345,6 +352,9 @@ void PhotonMap::freeKdTree(TreeNode *tree) {
 }
 
 TreeNode *PhotonMap::buildKdTree(std::vector<Photon> photons) {
+	if (photons.size() == 0) {
+		return NULL;
+	}
 	TreeNode *node = new TreeNode();
 	if (photons.size() == 1) {
 		leaves ++;
@@ -443,7 +453,6 @@ void PhotonMap::renderProjectionMap() {
 			float x_cos = glm::dot(glm::normalize(vec3(to_cell.x, 0,to_cell.z)), view_dir);
 			float y_ang = acos(y_cos);
 			float x_ang = acos(x_cos);
-			// cout << "y_cos: " << y_cos << ",x_cos: " << x_cos << endl;
 			if (y_cos > half_cos_fov && x_cos > half_cos_fov) {
 				float y_tan = tan(y_ang);
 				float x_tan = tan(x_ang);
@@ -479,7 +488,6 @@ void PhotonMap::renderKDtreeRec(Image *image, TreeNode *tree) {
 		renderKDtreeRec(image, tree->right);
 	}
 	if (tree->left == NULL && tree->right == NULL) {
-		cout << "reach photon" << endl;
 		renderPhoton(image, tree->photon);
 	}
 }

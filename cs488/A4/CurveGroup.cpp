@@ -49,11 +49,11 @@ CurveGroup::CurveGroup( const std::string& fname )
 
 }
 
-bool CurveGroup::intersect(vec3 eye, vec3 ray_dir, Intersection *isect){
+bool CurveGroup::intersect(vec3 eye, vec3 ray_dir, Intersection *isect, bool shadow_ray){
 	// cout << "mesh intersect" << endl;
 	Intersection tmp_isect = Intersection();
 	bool intersect = false;
-	if (m_bounding_sphere.intersect(eye, ray_dir, &tmp_isect)) {
+	if (m_bounding_sphere.intersect(eye, ray_dir, &tmp_isect, shadow_ray)) {
 		if (render_bb) {
 			isect->t = tmp_isect.t;
 			isect->normal = tmp_isect.normal;
@@ -66,7 +66,7 @@ bool CurveGroup::intersect(vec3 eye, vec3 ray_dir, Intersection *isect){
 				for (int i = 0; i < 4; i++ ){
 					cp_rays[i] = vec3(to_rays*vec4(c.cp[i],1.0));
 				}
-				if (intersectCurve(eye, ray_dir, Curve(cp_rays[0],cp_rays[1],cp_rays[2],cp_rays[3]), &tmp_isect, 0.0, 1.0, max_depth)) {
+				if (intersectCurve(eye, ray_dir, Curve(cp_rays[0],cp_rays[1],cp_rays[2],cp_rays[3]), &tmp_isect, 0.0, 1.0, max_depth, shadow_ray)) {
 					intersect = true;
 					if (tmp_isect.t < isect->t) {
 						*isect = tmp_isect;
@@ -82,7 +82,7 @@ bool CurveGroup::intersect(vec3 eye, vec3 ray_dir, Intersection *isect){
 }
 
 bool CurveGroup::intersectCurve(vec3 eye, vec3 ray_dir, Curve c, Intersection *isect,
-	double u0, double u1, int depth){
+	double u0, double u1, int depth, bool shadow_ray){
 
 	vec3 *cp_rays = c.cp;
 	double min_x = std::fmin(std::fmin(cp_rays[0][0], cp_rays[1][0]), std::fmin(cp_rays[2][0], cp_rays[3][0]))-wStart;
@@ -102,8 +102,8 @@ bool CurveGroup::intersectCurve(vec3 eye, vec3 ray_dir, Curve c, Intersection *i
 		Intersection isect1 = Intersection();
 		Intersection isect2 = Intersection();
 		double mid = u0+(u1-u0)/2.0;
-		bool intersect_c1 = intersectCurve(eye, ray_dir, c1, &isect1, u0, mid, depth-1);
-		bool intersect_c2 = intersectCurve(eye, ray_dir, c2, &isect2, mid, u1, depth-1);
+		bool intersect_c1 = intersectCurve(eye, ray_dir, c1, &isect1, u0, mid, depth-1, shadow_ray);
+		bool intersect_c2 = intersectCurve(eye, ray_dir, c2, &isect2, mid, u1, depth-1, shadow_ray);
 		if (intersect_c1 || intersect_c2) {
 			if (isect1.t < isect2.t) {
 				*isect = isect1;
@@ -154,9 +154,11 @@ bool CurveGroup::intersectCurve(vec3 eye, vec3 ray_dir, Curve c, Intersection *i
 				}
 			}
 			isect->t = t;
-			vec3 rayntan = glm::cross(vec3(0,0,-1), segment);
-			vec3 normal = glm::normalize(glm::cross(rayntan, segment));
-			isect->normal = normal;
+			if (!shadow_ray) {
+				vec3 rayntan = glm::cross(vec3(0,0,-1), segment);
+				vec3 normal = glm::normalize(glm::cross(rayntan, segment));
+				isect->normal = normal;
+			}
 		}
 
 	}

@@ -31,7 +31,7 @@ struct Curve
 class CurveGroup : public Primitive {
 public:
   CurveGroup( const std::string& fname );
-	bool intersect(vec3 eye, vec3 ray_dir, Intersection *isect);
+	bool intersect(vec3 eye, vec3 ray_dir, Intersection *isect, bool shadow_ray);
 
 
 private:
@@ -43,6 +43,6 @@ private:
 	NonhierSphere m_bounding_sphere;
 
 	void computeBoundingSphere();
-	bool intersectCurve(vec3 eye, vec3 ray_dir, Curve c, Intersection *isect, double u0, double u1, int depth);
+	bool intersectCurve(vec3 eye, vec3 ray_dir, Curve c, Intersection *isect, double u0, double u1, int depth, bool shadow_ray);
 	void subdivideBezier(const vec3 cp[4], vec3 cpSplit[7]);
 };

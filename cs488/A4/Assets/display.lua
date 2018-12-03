@@ -5,6 +5,7 @@ white = gr.material({1, 1, 1}, {1, 1, 1}, 25)
 brown = gr.material({0.52, 0.419, 0.18}, {1, 1, 1}, 25)
 orange = gr.material({1, 0.55, 0.1}, {1, 0.55, 0.1}, 25)
 green = gr.material({0.2588, 0.466, 0.02}, {0.2588, 0.466, 0.02}, 5)
+pale_yellow = gr.material({0.996, 0.97255, 0.80392}, {0.996, 0.97255, 0.80392}, 50)
 -- test_grass = gr.material({0.7, 0.6, 1}, {0.0, 0.0, 0.0}, 25, 1.3, 'rock.jpg')
 glass = gr.material({1.0,1.0,1.0}, {0.1,0.2,0.3}, 25, 1, 0, 1.6, '', '')
 glossy_brown = gr.material({0.52, 0.419, 0.18}, {0.5,0.5,0.5}, 25, 0, 1, 0.1, '', '')
@@ -12,12 +13,16 @@ glossy_grey = gr.material({0.6,0.6,0.6}, {0.8,0.8,0.8}, 25, 0, 1, 0.1, '', '')
 linen_knit = gr.material({1, 0.55, 0.1}, {1, 0.55, 0.1}, 70, 0, 0, 0, 'textures/linen.png', 'textures/knit.jpg')
 wallpaper = gr.material({0.7, 0.6, 1.0}, {0.8,0.8,0.8}, 25, 0, 0, 0, 'textures/wallpaper.jpg', '')
 wood = gr.material({0.7, 0.6, 1.0}, {0.8,0.8,0.8}, 25, 0, 0, 0, 'textures/wood.jpg', '')
-wood_gloss = gr.material({0.7, 0.6, 1.0}, {0.8,0.8,0.8}, 25, 0, 1, 0, 'textures/wood.jpg', '')
+wood_gloss = gr.material({0.7, 0.6, 1.0}, {0.8,0.8,0.8}, 25, 0, 1, 0.1, 'textures/wood.jpg', '')
 linen = gr.material({1, 1, 1}, {0.8,0.8,0.8}, 70, 0, 0, 0, 'textures/linen.png', '')
 
 scene = gr.node('scene')
+-- scene:rotate('X', 23)
+-- scene:translate(0, 0, -5)
+
+scene:rotate('Y', 30)
 scene:rotate('X', 23)
-scene:translate(0, 0, -5)
+scene:translate(1.8, -1, -7)
 
 -- mesh
 bwall = gr.mesh( 'bwall', 'mesh/back_wall.obj' )
@@ -38,21 +43,31 @@ table:set_material(wood)
 -- stem = gr.mesh( 'stem', 'mesh/pumpkin_stem.obj' )
 -- scene:add_child(stem)
 -- stem:set_material(brown)
-
+--
 -- -- wine glass
 -- wine_glass = gr.mesh( 'wine_glass', 'mesh/wine_glass.obj' )
 -- scene:add_child(wine_glass)
 -- wine_glass:set_material(glass)
 
--- ball
-s1 = gr.nh_sphere('s1', {0, 0, 0}, 0.5)
-scene:add_child(s1)
-s1:set_material(glass)
---
+-- candle cup
+candle_cup = gr.mesh( 'candle_cup', 'mesh/candle_cup_display.obj' )
+scene:add_child(candle_cup)
+candle_cup:set_material(glass)
+
+-- -- candle
+-- candle = gr.mesh( 'candle', 'mesh/candle_display.obj' )
+-- scene:add_child(candle)
+-- candle:set_material(pale_yellow)
+
 -- -- ball
--- s2 = gr.nh_sphere('s2', {1, 0, -1}, 0.5)
--- scene:add_child(s2)
--- s2:set_material(linen)
+-- s1 = gr.nh_sphere('s1', {0, 0, 0}, 0.5)
+-- scene:add_child(s1)
+-- s1:set_material(glass)
+
+-- ball
+s2 = gr.nh_sphere('s2', {1, 0, -1}, 0.5)
+scene:add_child(s2)
+s2:set_material(linen)
 
 -- -- curves
 -- fur = gr.curves( 'fur', 'mesh/fur.obj' )
@@ -70,6 +85,6 @@ s1:set_material(glass)
 l1 = gr.light({-20, 20, 20}, {1, 1, 1}, {1, 0, 0}, 600, 0.1)
 -- l2 = gr.light({0, 5, -20}, {0.8, 0.8, 0.8}, {1, 0, 0})
 
-gr.render(scene, 'test.png', 512, 512,
+gr.render(scene, 'display.png', 512, 512,
 	  {0, 0, 0}, {0, 0, -1}, {0, 1, 0}, 50,
-	  {0.4, 0.4, 0.4}, {l1}, 0.08, -7)
+	  {0.4, 0.4, 0.4}, {l1}, 0.08, -4)

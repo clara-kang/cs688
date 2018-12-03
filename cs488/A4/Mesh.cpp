@@ -33,7 +33,6 @@ Mesh::Mesh( const std::string& fname )
 	std::string delim = "/";
 
 	std::ifstream ifs( fname.c_str() );
-	cout << "mesh name: " << fname.c_str() << endl;
 	std::string line, model_name;
 	while (getline(ifs, line)) {
 		stringstream(line) >> code;
@@ -122,17 +121,17 @@ std::ostream& operator<<(std::ostream& out, const Mesh& mesh)
   return out;
 }
 
-bool Mesh::intersect(vec3 eye, vec3 ray_dir, Intersection *isect){
+bool Mesh::intersect(vec3 eye, vec3 ray_dir, Intersection *isect, bool shadow_ray){
 	// cout << "mesh intersect" << endl;
 	Intersection tmp_isect = Intersection();
 	isect->t = HUGE_VAL;
-	if (!has_bounding_volume || m_bounding_sphere.intersect(eye, ray_dir, &tmp_isect)) {
+	if (!has_bounding_volume || m_bounding_sphere.intersect(eye, ray_dir, &tmp_isect, shadow_ray)) {
 		if (has_bounding_volume && render_bb) {
 			isect->t = tmp_isect.t;
 			isect->normal = tmp_isect.normal;
 		} else {
 			for (Triangle triangle: m_faces) {
-				if (intersectTriangle(eye, ray_dir, triangle, &tmp_isect)) {
+				if (intersectTriangle(eye, ray_dir, triangle, &tmp_isect, shadow_ray)) {
 					if (tmp_isect.t < isect->t) {
 						*isect = tmp_isect;
 					}
@@ -146,7 +145,7 @@ bool Mesh::intersect(vec3 eye, vec3 ray_dir, Intersection *isect){
 	return false;
 }
 
-bool Mesh::intersectTriangle(vec3 eye, vec3 ray_dir, Triangle triangle, Intersection *isect) {
+bool Mesh::intersectTriangle(vec3 eye, vec3 ray_dir, Triangle triangle, Intersection *isect, bool shadow_ray) {
 	vec3 col1 = m_vertices.at(triangle.v1) - m_vertices.at(triangle.v2);
 	vec3 col2 = m_vertices.at(triangle.v1) - m_vertices.at(triangle.v3);
 	vec3 X = m_vertices.at(triangle.v1) - eye;
@@ -164,6 +163,9 @@ bool Mesh::intersectTriangle(vec3 eye, vec3 ray_dir, Triangle triangle, Intersec
 	double detT = glm::determinant(mat3(col1, col2, X));
 	isect->t = detT / detA;
 	if (isect->t > 0) {
+		if (shadow_ray) {
+			return true;
+		}
 		if (has_uv) {
 			vec2 uv = m_uvs.at(triangle.uv1) * (1-beta-gamma) + m_uvs.at(triangle.uv2) * beta + m_uvs.at(triangle.uv3) * gamma;
 			uv[0] = fmod(uv[0]+10.0, 1.0);

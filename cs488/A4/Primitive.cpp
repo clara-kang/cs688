@@ -19,24 +19,24 @@ Primitive::~Primitive()
 Sphere::~Sphere()
 {
 }
-bool Sphere::intersect(vec3 eye, vec3 ray_dir, Intersection *isect) {
+bool Sphere::intersect(vec3 eye, vec3 ray_dir, Intersection *isect, bool shadow_ray) {
   NonhierSphere ns (vec3(0.0,0.0,0.0), 1.0);
-  return ns.intersect(eye, ray_dir, isect);
+  return ns.intersect(eye, ray_dir, isect, shadow_ray);
 }
 
 Cube::~Cube()
 {
 }
-bool Cube::intersect(vec3 eye, vec3 ray_dir, Intersection *isect) {
+bool Cube::intersect(vec3 eye, vec3 ray_dir, Intersection *isect, bool shadow_ray) {
   NonhierBox nb (vec3(0.0,0.0,0.0), 1.0);
-  return nb.intersect(eye, ray_dir, isect);
+  return nb.intersect(eye, ray_dir, isect, shadow_ray);
 }
 
 NonhierSphere::~NonhierSphere()
 {
 
 }
-bool NonhierSphere::intersect(vec3 eye, vec3 ray_dir, Intersection *isect) {
+bool NonhierSphere::intersect(vec3 eye, vec3 ray_dir, Intersection *isect, bool shadow_ray) {
   //cout << glm::to_string(ray_dir) << endl;
   double A = pow(glm::length(ray_dir),2.0);
   double B = 2.0*glm::dot(ray_dir, (eye-m_pos));
@@ -60,12 +60,14 @@ bool NonhierSphere::intersect(vec3 eye, vec3 ray_dir, Intersection *isect) {
     return false;
   }
   if (isect->t > 0) {
-    vec3 normal = eye + (float)(isect->t)*ray_dir - m_pos;
-    isect->normal = glm::normalize(normal);
-    double u = 0.5 + atan2(normal[0],normal[2])/(2*PI);
-    double v = 0.5 + asin(normal[1]/m_radius)/PI;
-    isect->uv = vec2(u,v);
-    isect->tangent = vec3(-(isect->normal)[2],0,(isect->normal)[0]);
+    if (!shadow_ray) {
+      vec3 normal = eye + (float)(isect->t)*ray_dir - m_pos;
+      isect->normal = glm::normalize(normal);
+      double u = 0.5 + atan2(normal[0],normal[2])/(2*PI);
+      double v = 0.5 + asin(normal[1]/m_radius)/PI;
+      isect->uv = vec2(u,v);
+      isect->tangent = vec3(-(isect->normal)[2],0,(isect->normal)[0]);
+    }
     return true;
   }
   return false;
@@ -74,7 +76,7 @@ bool NonhierSphere::intersect(vec3 eye, vec3 ray_dir, Intersection *isect) {
 NonhierBox::~NonhierBox()
 {
 }
-bool NonhierBox::intersect(vec3 eye, vec3 ray_dir, Intersection *isect) {
+bool NonhierBox::intersect(vec3 eye, vec3 ray_dir, Intersection *isect, bool shadow_ray) {
   double xmin,xmax,ymin,ymax,zmin,zmax;
   double t_test, x, y;
   int intersectFace = -1; //1:Zmin 2:Zmax 3:Ymin 4:Ymax 5:Xmin 6:Xmax
@@ -138,6 +140,9 @@ bool NonhierBox::intersect(vec3 eye, vec3 ray_dir, Intersection *isect) {
       isect->t = t_test;
       intersectFace = 6;
     }
+  }
+  if (shadow_ray) {
+    return isect->t < HUGE_VAL;
   }
   switch (intersectFace) {
     case 1:

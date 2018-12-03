@@ -16,24 +16,22 @@ using namespace std;
 static const char *BG_FILE_NAME = "bg.jpg";
 static const double COLOR_THRESHOLD = 0.01;
 static const double REFLECT_MAX_TIMES = 3;
-static const double RESAMPLE_LEVEL = 4;
 static unsigned char *bg_data;
 
-static const bool ADAPTIVE_SAMPLING = false;
 static const bool FRESNEL = true;
 // photon mapping
 static const bool PHOTON_MAP = true;
-static const float NEAR_PHOTON_DIST = 20.0f;
-static const int PHOTON_NUM_POINT = 50;
+static const float NEAR_PHOTON_DIST = 10.0f;
+static const int PHOTON_NUM_POINT = 30;
 // soft shadow
-static const bool SOFT_SHADOW = false;
-static const double SOFT_SHADOW_N = 10;
+static const bool SOFT_SHADOW = true;
+static const double SOFT_SHADOW_N = 4;
 // glossy reflection
-static const double GLOSSY_REFL_N = 10;
+static const double GLOSSY_REFL_N = 8;
 static const double GLOSSY_REFL_FRACTION = 0.8;
 // dof
-static const bool DEPTH_OF_FIELD = false;
-static const double DEPTH_OF_FIELD_N = 20;
+static const bool DEPTH_OF_FIELD = true;
+static const double DEPTH_OF_FIELD_N = 4;
 
 static int bg_x, bg_y, channels;
 
@@ -87,6 +85,11 @@ A4::~A4() {
 
 void A4::A4_Render(
 ) {
+	// mat4 test1 = glm::rotate(mat4(1.0f),(float)(23.0*PI/180.0), vec3(1.0, 0.0, 0.0));
+	// test1 = glm::translate(test1, vec3(0.0f,0.0f,-5.0f));
+	// vec4 res = test1 * vec4(0.0f,0.0f,-0.2f,1.0f);
+	// cout << "res: " << glm::to_string(res) << endl;
+	// return;
 	// Get primary samples
 	Image primary_samples( w, h);
 
@@ -100,13 +103,10 @@ void A4::A4_Render(
 		cur_time = time(NULL);
 		printf("start to photon map: %s", ctime(&cur_time));
 		photon_map.createProjMap();
-		photon_map.castPhotons();
-		photon_map.buildKdTree();
-		// photon_map.renderKDtree();
 		photon_map.renderProjectionMap();
+		photon_map.castPhotons();
 		photon_map.renderPhotonMap();
-		// photon_map.test();
-		// return;
+		photon_map.buildKdTree();
 	}
 	cur_time = time(NULL);
 	printf("start to render: %s", ctime(&cur_time));
@@ -125,9 +125,7 @@ void A4::A4_Render(
 
 void A4::renderRange(int start_i) {
 	for (int i = start_i*(w/8.0); i < start_i*(w/8.0) + w/8.0; i++) {
-		// cout << "i: " << i << endl;
 		for (int j = 0; j < h; j++) {
-			// cout << "i: " << i << ",j: " << j << endl;
 			vec3 color = A4_sample_one_pixel((double)i,(double)j, false);
 			for (int k = 0; k < 3; k++) {
 					image((uint)i, (uint)j, k) = color[k];
@@ -146,8 +144,6 @@ glm::vec3 A4::A4_sample_one_dir(vec3 & ray_dir, vec3 & start, int i, int j, bool
 	Intersection isect = Intersection();
 	GeometryNode *obj;
 	A4_Render_pixel_rec (false, root, start, ray_dir, &isect, mat4(1.0), mat4(1.0), &obj);
-	// if intersect object
-	// cout << "ray_dir: " << glm::to_string(ray_dir) << endl;
 	if (isect.t < HUGE_VAL) {
 		// get color
 		vec3 color = getColor(isect, start, ray_dir, obj->m_material,0,0);
@@ -171,24 +167,18 @@ glm::vec3 A4::A4_sample_one_pixel(
 	vec3 ray_dir = get_ray_dir(i,j);
 	vec3 color = vec3(0,0,0);
 	vec3 start = eye;
-	// color += A4_sample_one_dir(ray_dir, start, i, j, resample);
 	if (!DEPTH_OF_FIELD) {
 		return A4_sample_one_dir(ray_dir, start, i, j, resample);
 	} else {
 		vec3 offset_ray_dir;
 		double focus_d = (focus_loc - eye[2])/ray_dir[2];
-		// cout << "focus_d"
 		vec3 dest = eye + focus_d * ray_dir;
-		// cout << "dest: " << glm::to_string(dest) << endl;
 		for (int i=0; i < DEPTH_OF_FIELD_N; i++) {
 			start = eye + (randoms[i]-0.5)*aperture_size*vec3(0,1,0) + (randoms[i]-0.5)*aperture_size*vec3(1,0,0);
-			// cout << "start to eye: " << glm::to_string(start-eye) << endl;
 			offset_ray_dir = glm::normalize(dest - start);
 			vec3 sample_color = A4_sample_one_dir(offset_ray_dir, start, i, j, true);
-			// cout << "sample_color: " << glm::to_string(sample_color) << endl;
 			color += sample_color;
 		}
-		// cout << endl;
 		return color / (double)(DEPTH_OF_FIELD_N);
 	}
 }
@@ -213,17 +203,14 @@ void A4::A4_Render_pixel_rec(
 		Dielectric *dielectric = dynamic_cast<Dielectric *>(gnode->m_material);
 		if (dielectric == NULL || !shadow_ray) {
 			bool intersect = prim->intersect(vec3(T_new*vec4(start,1.0)),
-				vec3(T_new*vec4(ray_dir,0.0)), &tmp_isect);
+				vec3(T_new*vec4(ray_dir,0.0)), &tmp_isect, shadow_ray);
 			if (intersect && tmp_isect.t < isect->t) {
 				isect->t = tmp_isect.t;
 				isect->normal = vec3(T_n_new*vec4(tmp_isect.normal, 0.0));
 				isect->tangent = vec3(glm::inverse(T_new)*vec4(tmp_isect.tangent, 0.0));
 				isect->uv = tmp_isect.uv;
-				// cout << "isect->uv: " << glm::to_string(isect->uv) << endl;
 				*obj = gnode;
 			}
-		} else {
-			// cout << "shadow_ray!! transparent obstacle!!" << endl;
 		}
 	}
 	if (!shadow_ray || isect->t == HUGE_VAL) {
@@ -272,11 +259,9 @@ glm::vec3 A4::readTextureMap(string mapName, vec2 uv) {
 
 glm::vec3 A4::getRadiance(const glm::vec3 & position, const glm::vec3 & ray_dir,
 	const glm::vec3 & normal) {
-		// cout << "get radiance" << endl;
 		std::vector<Photon *> *photons_found = new std::vector<Photon *>();
 		photon_map.locatePhotons(position, pow(NEAR_PHOTON_DIST,2.0),
 			PHOTON_NUM_POINT, photons_found);
-		// cout << "nearby photons num: " << (*photons_found).size() << endl;
 		int hit_count = 0;
 		float R = 1.0f;
 		float k = 2.0f;
@@ -288,15 +273,11 @@ glm::vec3 A4::getRadiance(const glm::vec3 & position, const glm::vec3 & ray_dir,
 					return glm::length(photon1->pos - position) < glm::length(photon2->pos - position);
 				});
 			R = glm::length(position - (*farthest_photon)->pos);
-			// cout << "R: " << R << endl;
 			for (it = (*photons_found).begin(); it != (*photons_found).end();++it) {
 				Photon *photon = *(it);
 				caustic_contrib += photon->color * (1.0f - glm::length(photon->pos - position)/(k*R));
-				// caustic_contrib += photon->color;
 			}
 			caustic_contrib = caustic_contrib /(PI * R * R * (1.0f-0.66f/k));
-			// caustic_contrib = caustic_contrib /(PI * R * R);
-			// cout << "caustic_contrib: " << glm::to_string(caustic_contrib) << endl;
 		}
 		delete photons_found;
 		return caustic_contrib;
@@ -346,12 +327,10 @@ glm::vec3 A4::getColor (
 		// read texture
 		if (isPhongMat && strlen((phongMat->m_tex_fname).c_str()) > 0) {
 				diffuse_color = readTextureMap(phongMat->m_tex_fname, isect.uv);
-				specular_color = diffuse_color;
 		}
 		// color from photons
 		if (PHOTON_MAP) {
 			caustics_contrib = getRadiance(intersection, ray_dir, n_normal);
-			// cout << "caustic_contrib: " << glm::to_string(caustics_contrib) << endl;
 		}
 		for (Light *light : lights) {
 			vec3 to_light = light->position - intersection;
@@ -416,8 +395,6 @@ glm::vec3 A4::getColor (
 		} else if (glossy != NULL && count <= REFLECT_MAX_TIMES) {
 			hit_count = glossyReflection(n_normal, ray_dir, intersection, *glossy, accum_dist, count, &reflection_contrib);
 		}
-		// // TODO: remove
-		// return caustics_contrib;
 
 		if (dielectric != NULL) {
 			return specular_contrib + (reflection_contrib + transmission_contrib) + caustics_contrib;
@@ -440,7 +417,6 @@ int A4::glossyReflection(
 	int count,
 	vec3 *reflection_contrib
 ) {
-	// cout << "count: " << count << endl;
 	vec3 offset, ofs_rf_ray_dir, start_rf;
 	GeometryNode *node1;
 	Intersection tmp_isect1 = Intersection();
@@ -470,7 +446,6 @@ int A4::glossyReflection(
 	}
 	if (hit_count > 0) {
 		*reflection_contrib = rf_avg_color/(double)hit_count;
-		// cout <<"reflection_contrib: " << glm::to_string(*reflection_contrib) << endl;
 	} else {
 		*reflection_contrib = vec3(0,0,0);
 	}
@@ -504,7 +479,6 @@ void A4::reflectAndTransmit(
 	bool from_inside = cos_thetaI < 0;
 
 	if (from_inside) {
-		// cout << "from_inside" << endl;
 		eta_T = 1.0;
 		eta_I = dielectric.m_rf_index;
 		cos_thetaI = - cos_thetaI;
@@ -520,7 +494,6 @@ void A4::reflectAndTransmit(
 	cos_thetaT = sqrt(1-pow(sin_thetaT, 2.0));
 
 	if (sin_thetaT >= 1.0) {
-		// cout << "total_internal!" << endl;
 		r_avg = 1.0;
 	} else {
 		// compute r_avg
@@ -532,7 +505,6 @@ void A4::reflectAndTransmit(
 		r_avg = std::fmin(std::fmax(r_avg, 0.0), 1.0);
 		// transmission
 		if (r_avg < 1) {
-			// cout << "transmission" << endl;
 			tr_ray_dir = glm::normalize(ray_dir + normal*cos_thetaI) * sin_thetaT - glm::normalize(normal*cos_thetaI) * cos_thetaT;
 			start_tr = intersection + EPSILON*tr_ray_dir;
 			tmp_isect2.t = HUGE_VAL;
@@ -554,7 +526,6 @@ void A4::reflectAndTransmit(
 			}
 			if (tmp_isect2.t < HUGE_VAL) {
 				tr_color = getColor (tmp_isect2, start_tr, tr_ray_dir, node1->m_material, accum_dist+tmp_isect2.t, count+1);
-				// cout << "tr_color: " << glm::to_string(tr_color) << endl;
 			}
 			*reflection_contrib = r_avg * rf_color;
 			*transmission_contrib = (1.0 - r_avg) * tr_color;

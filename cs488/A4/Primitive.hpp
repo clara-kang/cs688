@@ -21,14 +21,14 @@ struct Intersection {
 class Primitive {
 public:
   virtual ~Primitive();
-  virtual  bool intersect(vec3 eye, vec3 ray_dir, Intersection *isect) {return true;}
+  virtual  bool intersect(vec3 eye, vec3 ray_dir, Intersection *isect, bool shadow_ray) {return true;}
   bool has_uv = false;
 };
 
 class Sphere : public Primitive {
 public:
   virtual ~Sphere();
-  bool intersect(vec3 eye, vec3 ray_dir, Intersection *isect);
+  bool intersect(vec3 eye, vec3 ray_dir, Intersection *isect, bool shadow_ray);
 private:
   glm::vec3 m_pos;
   double m_radius;
@@ -37,7 +37,7 @@ private:
 class Cube : public Primitive {
 public:
   virtual ~Cube();
-  bool intersect(vec3 eye, vec3 ray_dir, Intersection *isect);
+  bool intersect(vec3 eye, vec3 ray_dir, Intersection *isect, bool shadow_ray);
 };
 
 class NonhierSphere : public Primitive {
@@ -47,7 +47,7 @@ public:
   {
   }
   virtual ~NonhierSphere();
-  bool intersect(vec3 eye, vec3 ray_dir, Intersection *isect);
+  bool intersect(vec3 eye, vec3 ray_dir, Intersection *isect, bool shadow_ray);
 
 // private:
   glm::vec3 m_pos;
@@ -61,7 +61,7 @@ public:
   {
     m_pos += vec3(0.0,0.0,0.0);
   }
-  bool intersect(vec3 eye, vec3 ray_dir, Intersection *isect);
+  bool intersect(vec3 eye, vec3 ray_dir, Intersection *isect, bool shadow_ray);
   virtual ~NonhierBox();
 
 private:
