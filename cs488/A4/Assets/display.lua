@@ -7,7 +7,8 @@ orange = gr.material({1, 0.55, 0.1}, {1, 0.55, 0.1}, 25)
 green = gr.material({0.2588, 0.466, 0.02}, {0.2588, 0.466, 0.02}, 5)
 pale_yellow = gr.material({0.996, 0.97255, 0.80392}, {0.996, 0.97255, 0.80392}, 50)
 -- test_grass = gr.material({0.7, 0.6, 1}, {0.0, 0.0, 0.0}, 25, 1.3, 'rock.jpg')
-glass = gr.material({1.0,1.0,1.0}, {0.1,0.2,0.3}, 25, 1, 0, 1.6, '', '')
+glass = gr.material({1.0,1.0,1.0}, {1.0,1.0,1.0}, 25, 1, 0, 1.6, '', '')
+red_glass = gr.material({1.0,0.0,0.0}, {1.0,1.0,1.0}, 25, 1, 0, 1.6, '', '')
 glossy_brown = gr.material({0.52, 0.419, 0.18}, {0.5,0.5,0.5}, 25, 0, 1, 0.1, '', '')
 glossy_grey = gr.material({0.6,0.6,0.6}, {0.8,0.8,0.8}, 25, 0, 1, 0.1, '', '')
 linen_knit = gr.material({1, 0.55, 0.1}, {1, 0.55, 0.1}, 70, 0, 0, 0, 'textures/linen.png', 'textures/knit.jpg')
@@ -17,12 +18,8 @@ wood_gloss = gr.material({0.7, 0.6, 1.0}, {0.8,0.8,0.8}, 25, 0, 1, 0.1, 'texture
 linen = gr.material({1, 1, 1}, {0.8,0.8,0.8}, 70, 0, 0, 0, 'textures/linen.png', '')
 
 scene = gr.node('scene')
--- scene:rotate('X', 23)
--- scene:translate(0, 0, -5)
-
-scene:rotate('Y', 30)
 scene:rotate('X', 23)
-scene:translate(1.8, -1, -7)
+scene:translate(0, 0, -5)
 
 -- mesh
 bwall = gr.mesh( 'bwall', 'mesh/back_wall.obj' )
@@ -49,25 +46,30 @@ table:set_material(wood)
 -- scene:add_child(wine_glass)
 -- wine_glass:set_material(glass)
 
--- candle cup
-candle_cup = gr.mesh( 'candle_cup', 'mesh/candle_cup_display.obj' )
-scene:add_child(candle_cup)
-candle_cup:set_material(glass)
+-- -- candle cup
+-- candle_cup = gr.mesh( 'candle_cup', 'mesh/candle_cup_display.obj' )
+-- scene:add_child(candle_cup)
+-- candle_cup:set_material(glass)
 
 -- -- candle
 -- candle = gr.mesh( 'candle', 'mesh/candle_display.obj' )
 -- scene:add_child(candle)
 -- candle:set_material(pale_yellow)
 
--- -- ball
--- s1 = gr.nh_sphere('s1', {0, 0, 0}, 0.5)
--- scene:add_child(s1)
--- s1:set_material(glass)
+-- colored glass ball
+r_glass_ball = gr.nh_sphere('s1', {0, 0, 0}, 0.5)
+scene:add_child(r_glass_ball)
+r_glass_ball:set_material(red_glass)
 
--- ball
-s2 = gr.nh_sphere('s2', {1, 0, -1}, 0.5)
-scene:add_child(s2)
-s2:set_material(linen)
+-- normal glass ball
+n_glass_ball = gr.nh_sphere('s1', {0, 0, 0}, 0.5)
+scene:add_child(n_glass_ball)
+n_glass_ball:set_material(glass)
+
+-- -- ball
+-- s2 = gr.nh_sphere('s2', {1, 0, -1}, 0.5)
+-- scene:add_child(s2)
+-- s2:set_material(linen)
 
 -- -- curves
 -- fur = gr.curves( 'fur', 'mesh/fur.obj' )

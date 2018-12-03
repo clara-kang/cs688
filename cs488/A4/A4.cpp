@@ -21,16 +21,17 @@ static unsigned char *bg_data;
 static const bool FRESNEL = true;
 // photon mapping
 static const bool PHOTON_MAP = true;
-static const float NEAR_PHOTON_DIST = 10.0f;
+static const float NEAR_PHOTON_DIST = 5.0f;
 static const int PHOTON_NUM_POINT = 30;
 // soft shadow
 static const bool SOFT_SHADOW = true;
-static const double SOFT_SHADOW_N = 4;
+static const double SOFT_SHADOW_N = 5;
+static const double SOFT_SHADOW_THRESHOLD = 3;
 // glossy reflection
-static const double GLOSSY_REFL_N = 8;
-static const double GLOSSY_REFL_FRACTION = 0.8;
+static const double GLOSSY_REFL_N = 4;
+static const double GLOSSY_REFL_FRACTION = 0.7;
 // dof
-static const bool DEPTH_OF_FIELD = true;
+static const bool DEPTH_OF_FIELD = false;
 static const double DEPTH_OF_FIELD_N = 4;
 
 static int bg_x, bg_y, channels;
@@ -359,7 +360,7 @@ glm::vec3 A4::getColor (
 						if (tmp_isect1.t == HUGE_VAL || tmp_isect1.t > to_light_dist){
 							hit_count++;
 						}
-						if (i == 4 && hit_count == 0) {
+						if (i == SOFT_SHADOW_THRESHOLD && hit_count == 0) {
 							break;
 						}
 					}
@@ -397,7 +398,7 @@ glm::vec3 A4::getColor (
 		}
 
 		if (dielectric != NULL) {
-			return specular_contrib + (reflection_contrib + transmission_contrib) + caustics_contrib;
+			return specular_contrib + (reflection_contrib + transmission_contrib)*diffuse_color + caustics_contrib;
 		} else if (glossy != NULL) {
 			double reflection_fraction = hit_count*(GLOSSY_REFL_FRACTION/GLOSSY_REFL_N);
 			return specular_contrib + reflection_fraction * reflection_contrib * diffuse_contrib+

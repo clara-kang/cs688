@@ -8,8 +8,10 @@ pale_yellow = gr.material({0.996, 0.97255, 0.80392}, {0.996, 0.97255, 0.80392}, 
 pumpkin_yellow = gr.material({0.7968, 0.778, 0.6431}, {0.5,0.5,0.5}, 50)
 yellow = gr.material({0.988, 0.843, 0.01176}, {1, 1, 1}, 25)
 black = gr.material({0.1, 0.1, 0.1}, {0.8,0.8,0.8}, 25)
+black_gloss = gr.material({0.1, 0.1, 0.1}, {0.8,0.8,0.8}, 25, 0, 1, 0.08,'','')
+red_brown_gloss = gr.material({0.5686, 0.2706, 0}, {0.2,0.2,0.2}, 25, 0, 1, 0.08,'','')
 green = gr.material({0.2588, 0.466, 0.02}, {0.2588, 0.466, 0.02}, 5)
-glass = gr.material({1.0,1.0,1.0}, {0.1,0.2,0.3}, 25, 1, 0, 1.6, '', '')
+glass = gr.material({1.0,1.0,1.0}, {1.0,1.0,1.0}, 25, 1, 0, 1.6, '', '')
 linen_knit = gr.material({1, 0.55, 0.1}, {1, 0.55, 0.1}, 70, 0, 0, 0, 'textures/linen.png', 'textures/knit.jpg')
 wallpaper = gr.material({0.7, 0.6, 1.0}, {0.8,0.8,0.8}, 25, 0, 0, 0, 'textures/wallpaper.jpg', '')
 wood = gr.material({0.7, 0.6, 1.0}, {0.8,0.8,0.8}, 25, 0, 0, 0, 'textures/wood.jpg', '')
@@ -18,7 +20,9 @@ red_wood = gr.material({0,0,0}, {0.8,0.8,0.8}, 50, 0, 0, 0, 'textures/red_wood.j
 yellow_leaf = gr.material({0,0,0}, {0,0,0}, 50, 0, 0, 0, 'textures/leaf1.png', '')
 red_leaf = gr.material({0,0,0}, {0,0,0}, 50, 0, 0, 0, 'textures/leaf2.png', '')
 pear_skin = gr.material({0,0,0}, {0.8,0.8,0.8}, 50, 0, 0, 0, 'textures/pear.jpg', '')
+pear_skin_gloss = gr.material({0,0,0}, {0.8,0.8,0.8}, 50, 0, 1, 0.08, 'textures/pear.jpg', '')
 black_cloth = gr.material({0,0,0}, {0.8,0.8,0.8}, 50, 0, 0, 0, 'textures/black_cloth.jpg', '')
+brown_leather = gr.material({0,0,0}, {0.8,0.8,0.8}, 50, 0, 0, 0, 'textures/acorn_hat.JPG', '')
 
 scene = gr.node('scene')
 scene:rotate('Y', 30)
@@ -28,7 +32,7 @@ scene:translate(1.8, -1, -7)
 -- table
 table = gr.mesh( 'table', 'final_mesh/table.obj' )
 scene:add_child(table)
-table:set_material(wood_gloss)
+table:set_material(wood)
 
 -- wall
 wall = gr.mesh( 'wall', 'final_mesh/wall.obj' )
@@ -175,10 +179,30 @@ wine_glass_tall = gr.mesh( 'wine_glass_tall', 'final_mesh/wine_glass_tall.obj' )
 scene:add_child(wine_glass_tall)
 wine_glass_tall:set_material(glass)
 
+-- acorn hat
+acorn_hat = gr.mesh( 'acorn_hat', 'final_mesh/acorn_hat.obj' )
+scene:add_child(acorn_hat)
+acorn_hat:set_material(brown_leather)
+
+-- acorn
+acorn = gr.mesh( 'acorn', 'final_mesh/acorn.obj' )
+scene:add_child(acorn)
+acorn:set_material(red_brown_gloss)
+
+-- acorn hat 2
+acorn_hat2 = gr.mesh( 'acorn_hat2', 'final_mesh/acorn_hat2.obj' )
+scene:add_child(acorn_hat2)
+acorn_hat2:set_material(brown_leather)
+
+-- acorn
+acorn2 = gr.mesh( 'acorn2', 'final_mesh/acorn2.obj' )
+scene:add_child(acorn2)
+acorn2:set_material(red_brown_gloss)
+
 -- The lights
-l1 = gr.light({-10, 20, 20}, {1, 1, 1}, {1, 0, 0}, 20000, 0.1)
+l1 = gr.light({-10, 20, 20}, {1, 1, 0.902}, {1, 0, 0}, 20000, 0.1)
 -- l2 = gr.light({0, 5, -20}, {0.8, 0.8, 0.8}, {1, 0, 0})
 
-gr.render(scene, 'test.png', 700, 700,
+gr.render(scene, 'test.png', 800, 800,
 	  {0, 0, 0}, {0, 0, -1}, {0, 1, 0}, 50,
 	  {0.4, 0.4, 0.4}, {l1}, 0.08, -4)

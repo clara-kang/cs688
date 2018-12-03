@@ -20,7 +20,7 @@ using namespace glm;
 #define DIFFUSE 1
 
 static const int NUM_INC_PROJ_MAP = 600;
-static const float PHOTON_ATTEN = 0.001f;
+static const float PHOTON_ATTEN = 0.0008f;
 static const int REFLECT_MAX_TIMES = 3;
 static const float INC_PHI = PI / NUM_INC_PROJ_MAP;
 static const float INC_THETA = PI / NUM_INC_PROJ_MAP;
@@ -173,7 +173,7 @@ void PhotonMap::castPhotons() {
 								Photon photon;
 								photon.dir = ray_dir;
 								photon.pos = intersection;
-								photon.color = photon_col;
+								photon.color = photon_col*dielectric->m_kd;
 								photon_map.push_back(photon);
 							}
 						}
