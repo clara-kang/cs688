@@ -16,6 +16,7 @@ wallpaper = gr.material({0.7, 0.6, 1.0}, {0.8,0.8,0.8}, 25, 0, 0, 0, 'textures/w
 wood = gr.material({0.7, 0.6, 1.0}, {0.8,0.8,0.8}, 25, 0, 0, 0, 'textures/wood.jpg', '')
 wood_gloss = gr.material({0.7, 0.6, 1.0}, {0.8,0.8,0.8}, 25, 0, 1, 0.1, 'textures/wood.jpg', '')
 linen = gr.material({1, 1, 1}, {0.8,0.8,0.8}, 70, 0, 0, 0, 'textures/linen.png', '')
+black_cloth = gr.material({0,0,0}, {0.8,0.8,0.8}, 50, 0, 0, 0, 'textures/black_cloth.jpg', '')
 
 scene = gr.node('scene')
 scene:rotate('X', 23)
@@ -56,11 +57,11 @@ table:set_material(wood)
 -- scene:add_child(candle)
 -- candle:set_material(pale_yellow)
 
--- colored glass ball
-r_glass_ball = gr.nh_sphere('s1', {0, 0, 0}, 0.5)
-scene:add_child(r_glass_ball)
-r_glass_ball:set_material(red_glass)
-
+-- -- colored glass ball
+-- r_glass_ball = gr.nh_sphere('s1', {0, 0, 0}, 0.5)
+-- scene:add_child(r_glass_ball)
+-- r_glass_ball:set_material(red_glass)
+--
 -- normal glass ball
 n_glass_ball = gr.nh_sphere('s1', {0, 0, 0}, 0.5)
 scene:add_child(n_glass_ball)
@@ -71,20 +72,31 @@ n_glass_ball:set_material(glass)
 -- scene:add_child(s2)
 -- s2:set_material(linen)
 
--- -- curves
--- fur = gr.curves( 'fur', 'mesh/fur.obj' )
--- scene:add_child(fur)
--- -- fur:scale(0.6,0.6,0.6)
--- -- fur:translate(0,0,0)
--- fur:set_material(orange)
 --
--- -- core
--- core = gr.nh_sphere('core', {0,0,0}, 0.4)
--- scene:add_child(core)
--- core:set_material(orange)
+-- node = gr.node('node')
+-- scene:add_child(node)
+-- node:scale(2,2,2)
+-- node:translate(7, -2, 4)
+--
+-- -- bat wing
+-- bat_wing = gr.mesh( 'bat_wing', 'final_mesh/bat_wing.obj' )
+-- node:add_child(bat_wing)
+-- bat_wing:set_material(black_cloth)
+--
+-- -- bat core
+-- bat_core = gr.mesh( 'bat_core', 'final_mesh/bat_core.obj' )
+-- node:add_child(bat_core)
+-- bat_core:set_material(orange)
+--
+-- -- bat fur
+-- bat_fur = gr.curves( 'bat_fur', 'final_mesh/bat_fur.obj' )
+-- node:add_child(bat_fur)
+-- bat_fur:set_material(orange)
+--
+
 
 -- The lights
-l1 = gr.light({-20, 20, 20}, {1, 1, 1}, {1, 0, 0}, 600, 0.1)
+l1 = gr.light({-20, 20, 20}, {1, 1, 1}, {1, 0, 0}, 0, 0.1)
 -- l2 = gr.light({0, 5, -20}, {0.8, 0.8, 0.8}, {1, 0, 0})
 
 gr.render(scene, 'display.png', 512, 512,

@@ -86,11 +86,6 @@ A4::~A4() {
 
 void A4::A4_Render(
 ) {
-	// mat4 test1 = glm::rotate(mat4(1.0f),(float)(23.0*PI/180.0), vec3(1.0, 0.0, 0.0));
-	// test1 = glm::translate(test1, vec3(0.0f,0.0f,-5.0f));
-	// vec4 res = test1 * vec4(0.0f,0.0f,-0.2f,1.0f);
-	// cout << "res: " << glm::to_string(res) << endl;
-	// return;
 	// Get primary samples
 	Image primary_samples( w, h);
 
