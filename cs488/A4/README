@@ -1,36 +1,20 @@
 #### Final Scene
-![alt text](https://github.com/clara-kang/cs688/blob/master/cs488/A4/Assets/rendered/scene.png)
+![img](https://raw.githubusercontent.com/clara-kang/cs688/master/cs488/A4/Assets/rendered/scene.png)
 
-##### Texture mapping with soft shadow
-![alt text](https://github.com/clara-kang/cs688/blob/master/cs488/A4/Assets/rendered/soft_shadow.png)
+#### Texture mapping with soft shadow
+![alt text](https://raw.githubusercontent.com/clara-kang/cs688/master/cs488/A4/Assets/rendered/soft_shadow.png)
 
 #### Glossy surface
-![alt text](https://github.com/clara-kang/cs688/blob/master/cs488/A4/Assets/rendered/tex_glossy.png)
+![alt text](https://raw.githubusercontent.com/clara-kang/cs688/master/cs488/A4/Assets/rendered/tex_glossy.png)
 
 #### Refraction
-![alt text](https://github.com/clara-kang/cs688/blob/master/cs488/A4/Assets/rendered/glass_transmission.png)
+![alt text](https://raw.githubusercontent.com/clara-kang/cs688/master/cs488/A4/Assets/rendered/glass_transmission.png)
 
 ##### Depth of field
-![alt text](https://github.com/clara-kang/cs688/blob/master/cs488/A4/Assets/rendered/depth_of_field1.png)
+![alt text](https://raw.githubusercontent.com/clara-kang/cs688/master/cs488/A4/Assets/rendered/depth_of_field1.png)
 
 #### Fur (Bezier curve and ray intersection)
-![alt text](https://github.com/clara-kang/cs688/blob/master/cs488/A4/Assets/rendered/fur.png)
+![alt text](https://raw.githubusercontent.com/clara-kang/cs688/master/cs488/A4/Assets/rendered/fur.png)
 
 #### Photon mapping
-![alt text](https://github.com/clara-kang/cs688/blob/master/cs488/A4/Assets/rendered/photon_colored.png)
-
-
-To compile:
-premake4 gmake
-make
-
-The code has been tested on gl14.
-
-Manual:
-The extra feature is adaptive anti-aliasing
-hier_edge.png and nonhier_edge.png shows that the edges are detected successfully.
-Only hier.png and nonhier.png are rendered with adaptive anti-aliasing due to time constraint. (ADAPTIVE_SAMPLING in A4.cpp was set to false when rendering the rest)
-
-The unique scene includes two types of trees, a tent, water, a terrain and some clouds. I made the models.
-
-The unique scene was rendered with a different background (bg11.jpg instead of bg.jpg).
+![alt text](https://raw.githubusercontent.com/clara-kang/cs688/master/cs488/A4/Assets/rendered/photon_colored.png)
